@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   Platform,
   StyleSheet,
   View,
@@ -66,7 +67,7 @@ export function ChravelWebView({ onError }: ChravelWebViewProps) {
     loadingHideTimerRef.current = setTimeout(() => {
       loadingHideTimerRef.current = null;
       setIsLoading(false);
-    }, 5000);
+    }, 2000);
   }, [clearLoadingFallbackTimer]);
 
   useEffect(() => () => clearLoadingFallbackTimer(), [clearLoadingFallbackTimer]);
@@ -336,6 +337,8 @@ export function ChravelWebView({ onError }: ChravelWebViewProps) {
         sharedCookiesEnabled={true}
         thirdPartyCookiesEnabled={false}
         domStorageEnabled={true}
+        cacheEnabled={true}
+        cacheMode={Platform.OS === "android" ? "LOAD_DEFAULT" : undefined}
         javaScriptCanOpenWindowsAutomatically={false}
         onShouldStartLoadWithRequest={(request) => shouldLoadRequest(request)}
         onNavigationStateChange={(navState) => {
@@ -364,7 +367,7 @@ export function ChravelWebView({ onError }: ChravelWebViewProps) {
         onLoadEnd={() => {
           // Don't hide the overlay here — wait for the "ready" bridge
           // message from the web app (sent after auth hydration).
-          // Fallback: hide after 5 seconds if the signal never arrives.
+          // Fallback: hide after 2 seconds if the signal never arrives.
           // Replace any prior fallback so stacked loads / OAuth cannot fire stale timers.
           scheduleLoadingFallback();
         }}
@@ -383,7 +386,16 @@ export function ChravelWebView({ onError }: ChravelWebViewProps) {
 
       {isLoading && (
         <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color={COLORS.brandBlue} />
+          <Image
+            source={require("../assets/splash.png")}
+            style={styles.loadingLogo}
+            resizeMode="contain"
+          />
+          <ActivityIndicator
+            size="small"
+            color="#c49746"
+            style={styles.loadingSpinner}
+          />
         </View>
       )}
     </View>
@@ -401,8 +413,16 @@ const styles = StyleSheet.create({
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: COLORS.background,
+    backgroundColor: "#0b0b0f",
     justifyContent: "center",
     alignItems: "center",
+  },
+  loadingLogo: {
+    width: 320,
+    height: 240,
+    marginBottom: 24,
+  },
+  loadingSpinner: {
+    marginTop: 8,
   },
 });
