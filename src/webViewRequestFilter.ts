@@ -19,6 +19,7 @@ export interface RequestPolicyResult {
   allowInWebView: boolean;
   externalUrlToOpen?: string;
   openInAppBrowser?: boolean;
+  useAuthSession?: boolean;
 }
 
 function isAllowedChravelWebOrigin(url: string): boolean {
@@ -60,6 +61,7 @@ export function evaluateWebViewRequestPolicy({
       allowInWebView: false,
       externalUrlToOpen: url,
       openInAppBrowser: platformOS === "ios" || platformOS === "android",
+      useAuthSession: platformOS === "ios" || platformOS === "android",
     };
   }
 
