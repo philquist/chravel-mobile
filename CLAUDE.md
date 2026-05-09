@@ -106,7 +106,7 @@ Any changes here **must** be coordinated with the web app in `ChravelApp`.
 ### Injected globals
 
 The native shell injects these before page load (`buildInjectedJS` in `bridge.ts`):
-- `window.ChravelNative` — `{ platform: "ios"|"android", isNative: true, version: "1.0.0" }`
+- `window.ChravelNative` — `{ platform: "ios"|"android", isNative: true, version: "1.0.0", isTablet, openOAuthUrl(url) }`
 - `window.ChravelNativeAudio` — `{ isAvailable, requestPermission(), startCapture(), stopCapture(), playAudio(base64, sampleRate), flushPlayback() }`
 
 ## Commands
