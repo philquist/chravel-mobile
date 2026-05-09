@@ -179,7 +179,12 @@ export class AudioCaptureManager {
         }
 
         // Clean up temp file.
-        try { file.delete(); } catch { /* ignore */ }
+        try {
+          file.delete();
+        } catch (err) {
+          // Ignore errors during file deletion (e.g. file already gone).
+          console.warn("[AudioCapture] Failed to delete temp file:", err);
+        }
       }
     } catch (err) {
       console.error("[AudioCapture] Failed to harvest chunk:", err);
@@ -202,10 +207,16 @@ export class AudioCaptureManager {
       }
       const uri = recording.uri;
       if (uri) {
-        try { new FSFile(uri).delete(); } catch { /* ignore */ }
+        try {
+          new FSFile(uri).delete();
+        } catch (err) {
+          // Ignore errors during file deletion (e.g. file already gone).
+          console.warn("[AudioCapture] Failed to delete recording file:", err);
+        }
       }
-    } catch {
+    } catch (err) {
       // Recording may already be stopped — ignore.
+      console.warn("[AudioCapture] Failed to stop current recording:", err);
     }
   }
 }
