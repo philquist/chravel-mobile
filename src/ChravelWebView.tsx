@@ -418,7 +418,10 @@ export function ChravelWebView({ onError }: ChravelWebViewProps) {
       )}
 
       {showAuthBrand && (
-        <View pointerEvents="none" style={styles.authBrandContainer}>
+        <View
+          pointerEvents="none"
+          style={[styles.authBrandContainer, { top: insets.top + 56 }]}
+        >
           <Text style={styles.authBrandText}>ChravelApp</Text>
         </View>
       )}
@@ -451,7 +454,6 @@ const styles = StyleSheet.create({
   },
   authBrandContainer: {
     position: "absolute",
-    top: 18,
     left: 0,
     right: 0,
     alignItems: "center",
