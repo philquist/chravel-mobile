@@ -152,8 +152,9 @@ export class AudioPlaybackManager {
     if (player) {
       try {
         player.remove();
-      } catch {
-        // Player may already be removed.
+      } catch (err) {
+        // Player may already be removed or invalidated.
+        console.warn("[AudioPlayback] Failed to remove player:", err);
       }
     }
 
@@ -164,7 +165,12 @@ export class AudioPlaybackManager {
     const file = this.currentFile;
     this.currentFile = null;
     if (file) {
-      try { file.delete(); } catch { /* ignore */ }
+      try {
+        file.delete();
+      } catch (err) {
+        // Ignore errors during file deletion (e.g. file already gone).
+        console.warn("[AudioPlayback] Failed to delete temp file:", err);
+      }
     }
   }
 }

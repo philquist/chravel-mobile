@@ -115,8 +115,9 @@ export class AndroidCaptureManager {
 
     try {
       await ExpoPlayAudioStream.stopRecording();
-    } catch {
+    } catch (err) {
       // Recording may already be stopped — ignore.
+      console.warn("[AndroidCapture] Failed to stop recording:", err);
     }
   }
 }
