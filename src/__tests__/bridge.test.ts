@@ -25,6 +25,14 @@ describe("parseBridgeMessage", () => {
     expect(result).toEqual({ type: "browser:open", url: "https://example.com", presentationStyle: "popover" });
   });
 
+
+  it("parses a valid oauth:open message", () => {
+    const result = parseBridgeMessage(
+      JSON.stringify({ type: "oauth:open", url: "https://accounts.google.com/o/oauth2/v2/auth" })
+    );
+    expect(result).toEqual({ type: "oauth:open", url: "https://accounts.google.com/o/oauth2/v2/auth" });
+  });
+
   it("parses a valid revenuecat:identify message", () => {
     const result = parseBridgeMessage(JSON.stringify({ type: "revenuecat:identify", userId: "user-123" }));
     expect(result).toEqual({ type: "revenuecat:identify", userId: "user-123" });
@@ -124,6 +132,8 @@ describe("buildInjectedJS", () => {
     expect(result).toContain('window.ChravelNative');
     expect(result).toContain('platform: "ios"');
     expect(result).toContain("isNative: true");
+    expect(result).toContain("openOAuthUrl: function(url)");
+    expect(result).toContain('type: "oauth:open"');
   });
 
   it("includes safe area CSS injection", () => {

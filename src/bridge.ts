@@ -15,6 +15,7 @@
 export type BridgeMessage =
   | { type: "haptic"; style: HapticStyle }
   | { type: "browser:open"; url: string; presentationStyle?: "fullscreen" | "pageSheet" | "formSheet" | "popover" }
+  | { type: "oauth:open"; url: string }
   | { type: "push:register" }
   | { type: "push:unregister" }
   | { type: "revenuecat:purchase"; packageId: string }
@@ -82,6 +83,12 @@ export function buildInjectedJS(platform: string, bottomInset: number = 0, isTab
       isNative: true,
       version: "1.0.0",
       isTablet: ${isTablet},
+      openOAuthUrl: function(url) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: "oauth:open",
+          url: url ? String(url) : ""
+        }));
+      },
     };
 
     // ── Native Audio API for Gemini Live voice ──────────────────
@@ -351,6 +358,7 @@ export function parseBridgeMessage(raw: string): BridgeMessage | null {
         return null;
 
       case "browser:open":
+      case "oauth:open":
         if (typeof data.url === "string") {
           return data as BridgeMessage;
         }

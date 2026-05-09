@@ -15,7 +15,7 @@ import * as WebBrowser from "expo-web-browser";
 import { Share } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { WEB_APP_URL, NATIVE_USER_AGENT_SUFFIX, COLORS, IS_TABLET } from "./constants";
+import { WEB_APP_URL, NATIVE_USER_AGENT_SUFFIX, COLORS, IS_TABLET, OAUTH_CALLBACK_URL } from "./constants";
 import { buildInjectedJS, buildWebEvent, parseBridgeMessage } from "./bridge";
 import {
   registerForPushNotifications,
@@ -202,6 +202,18 @@ export function ChravelWebView({ onError }: ChravelWebViewProps) {
         }
         break;
 
+      case "oauth:open":
+        if (message.url) {
+          const result = await WebBrowser.openAuthSessionAsync(message.url, OAUTH_CALLBACK_URL);
+          if (result.type === "success" && result.url) {
+            const nextPath = parseDeepLinkUrl(result.url);
+            if (nextPath?.startsWith("/auth-callback")) {
+              handleIncomingPath(nextPath);
+            }
+          }
+        }
+        break;
+
       case "push:register": {
         const result = await registerForPushNotifications();
         webViewRef.current?.injectJavaScript(
@@ -306,7 +318,7 @@ export function ChravelWebView({ onError }: ChravelWebViewProps) {
           if (decision.useAuthSession) {
             void WebBrowser.openAuthSessionAsync(
               decision.externalUrlToOpen,
-              "chravel://auth-callback",
+              OAUTH_CALLBACK_URL,
             ).then((result) => {
               if (result.type === "success" && result.url) {
                 const nextPath = parseDeepLinkUrl(result.url);
