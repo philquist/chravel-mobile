@@ -221,16 +221,32 @@ module.exports = ({ config }) => ({
               "@mykin-ai/expo-audio-stream",
               [
                 "expo-splash-screen",
-          {
+                {
                   image: "./assets/splash.png",
-                            imageWidth: 420,
-                            resizeMode: "contain",
-                            backgroundColor: "#0b0b0f",
-                            spinnerColor: "#c49746",
-                            iosSpinnerStyle: "small",
-                            androidSpinnerStyle: "small",
-                    },
-    ],
+                  imageWidth: 420,
+                  resizeMode: "contain",
+                  backgroundColor: "#0b0b0f",
+                  spinnerColor: "#c49746",
+                  iosSpinnerStyle: "small",
+                  androidSpinnerStyle: "small",
+                  dark: {
+                    image: "./assets/splash.png",
+                    backgroundColor: "#0b0b0f",
+                  },
+                  ios: {
+                    image: "./assets/splash.png",
+                    imageWidth: 420,
+                    resizeMode: "contain",
+                    backgroundColor: "#0b0b0f",
+                  },
+                  android: {
+                    image: "./assets/splash-icon-android.png",
+                    imageWidth: 192,
+                    resizeMode: "contain",
+                    backgroundColor: "#0b0b0f",
+                  },
+                },
+              ],
             ],
             extra: {
     eas: { projectId: "94c4e798-1f84-4e0c-9011-d18fe558f818" },
