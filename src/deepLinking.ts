@@ -59,6 +59,27 @@ export function parseDeepLinkUrl(url: string): string | null {
 /** Single source of truth for native shell auth bootstrap route. */
 export const AUTH_LAUNCH_PATH = "/auth";
 
+/** Canonical callback URI that must return control to the native app shell. */
+export const NATIVE_OAUTH_CALLBACK_URL = "chravel://auth-callback";
+
+/**
+ * Rewrites Supabase/IdP authorize URLs so native OAuth callbacks resolve to
+ * the app scheme instead of a web-only callback page.
+ */
+export function rewriteOAuthUrlForNativeCallback(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.searchParams.has("redirect_to")) {
+      return url;
+    }
+    parsed.searchParams.set("redirect_to", NATIVE_OAUTH_CALLBACK_URL);
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
+
 /**
  * Build a web URL for the in-app WebView.
  * Always appends app_context=native while preserving path/query/hash.

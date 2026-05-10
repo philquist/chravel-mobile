@@ -1,7 +1,6 @@
 import { Platform } from "react-native";
 
 export const WEB_APP_URL = "https://chravel.app";
-export const OAUTH_CALLBACK_URL = "https://chravel.app/auth-callback";
 
 export const IS_TABLET = Platform.OS === "ios" && Platform.isPad === true;
 
