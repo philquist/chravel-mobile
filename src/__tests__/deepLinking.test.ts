@@ -13,6 +13,8 @@ import {
   isAuthScreenUrl,
   AUTH_LAUNCH_PATH,
   buildNativeAuthLaunchUrl,
+  NATIVE_OAUTH_CALLBACK_URL,
+  rewriteOAuthUrlForNativeCallback,
 } from "../deepLinking";
 
 describe("isAuthScreenUrl", () => {
@@ -160,5 +162,25 @@ describe("buildWebViewLaunchUrl", () => {
     expect(buildWebViewLaunchUrl("//evil.com/phish")).toBe(
       "https://chravel.app/auth?app_context=native",
     );
+  });
+});
+
+
+describe("rewriteOAuthUrlForNativeCallback", () => {
+  it("rewrites redirect_to query param to the native callback", () => {
+    const url = "https://abc.supabase.co/auth/v1/authorize?provider=apple&redirect_to=https%3A%2F%2Fchravel.app%2Fauth-callback";
+    expect(rewriteOAuthUrlForNativeCallback(url)).toContain(
+      `redirect_to=${encodeURIComponent(NATIVE_OAUTH_CALLBACK_URL)}`
+    );
+  });
+
+  it("does not mutate urls with no redirect_to", () => {
+    const url = "https://appleid.apple.com/auth/authorize?foo=bar";
+    expect(rewriteOAuthUrlForNativeCallback(url)).toBe(url);
+  });
+
+  it("fails open on malformed urls", () => {
+    const url = "not a url";
+    expect(rewriteOAuthUrlForNativeCallback(url)).toBe(url);
   });
 });
