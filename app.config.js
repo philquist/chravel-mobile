@@ -38,6 +38,7 @@ module.exports = ({ config }) => ({
     supportsTablet: true,
           bundleIdentifier: "com.chravel.app",
           buildNumber: "1",
+          usesAppleSignIn: true,
           infoPlist: {
       NSCameraUsageDescription: "Chravel uses the camera to capture photos and videos you choose to share with your trips.",
               NSPhotoLibraryUsageDescription: "Chravel needs access to your photo library so you can upload photos and videos to trip chats and shared albums.",
