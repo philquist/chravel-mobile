@@ -240,7 +240,7 @@ module.exports = ({ config }) => ({
                     backgroundColor: "#0b0b0f",
                   },
                   android: {
-                    image: "./assets/splash-icon.png",
+                    image: "./assets/splash-icon-android.png",
                     imageWidth: 192,
                     resizeMode: "contain",
                     backgroundColor: "#0b0b0f",
