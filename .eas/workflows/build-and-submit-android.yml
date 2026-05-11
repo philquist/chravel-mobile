@@ -1,4 +1,4 @@
-yamlname: Build and submit Android on push to main
+name: Build and submit Android on push to main
 on:
   push:
     branches: ["main"]
