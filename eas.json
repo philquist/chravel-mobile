@@ -21,9 +21,10 @@
                                     }
                     },
                     "production": {
+                                    "autoIncrement": true,
                                     "ios": {
                                                         "buildConfiguration": "Release",
-                                                        "autoIncrement": true
+                                                        "autoIncrement": "buildNumber"
                                     },
                                     "android": {
                                                         "buildType": "app-bundle",
