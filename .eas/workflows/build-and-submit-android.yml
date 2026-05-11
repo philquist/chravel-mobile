@@ -1,0 +1,17 @@
+name: Build and submit Android on push to main
+on:
+  push:
+    branches: ["main"]
+jobs:
+  build_android:
+    name: Build Android
+    type: build
+    params:
+      platform: android
+      profile: production
+  submit_android:
+    name: Submit to Google Play (Open testing)
+    needs: [build_android]
+    type: submit
+    params:
+      build_id: ${{ needs.build_android.outputs.build_id }}

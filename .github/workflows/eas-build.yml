@@ -94,7 +94,8 @@ jobs:
           grep -oP 'https://expo.dev/accounts/\S+' build-output.txt >> $GITHUB_STEP_SUMMARY || true
 
   build-android:
-    name: Build Android & Submit to Play Store
+    if: ${{ false }} # Disabled: replaced by EAS Workflow in .eas/workflows/build-and-submit-android.yml
+    name: Build Android & Submit to Play Store (disabled)
     needs: [test, platform-smoke]
     runs-on: ubuntu-latest
     steps:
