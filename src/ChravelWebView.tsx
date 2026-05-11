@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   Platform,
   StyleSheet,
   Text,
@@ -45,9 +44,10 @@ import { evaluateReadyDecision } from "./authRouting";
 
 interface ChravelWebViewProps {
   onError: () => void;
+  onInitialLoadEnd?: () => void;
 }
 
-export function ChravelWebView({ onError }: ChravelWebViewProps) {
+export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProps) {
   const webViewRef = useRef<WebView>(null);
   const [isLoading, setIsLoading] = useState(true);
   const insets = useSafeAreaInsets();
@@ -59,6 +59,7 @@ export function ChravelWebView({ onError }: ChravelWebViewProps) {
   const initialUrlRef = useRef<string | null>(null);
   const loadingHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showAuthBrand, setShowAuthBrand] = useState(true);
+  const hasReportedInitialLoadEndRef = useRef(false);
 
   const clearLoadingFallbackTimer = useCallback(() => {
     if (loadingHideTimerRef.current !== null) {
@@ -399,6 +400,10 @@ export function ChravelWebView({ onError }: ChravelWebViewProps) {
           wasOnAuthRef.current = onAuth;
         }}
         onLoadEnd={() => {
+          if (!hasReportedInitialLoadEndRef.current) {
+            hasReportedInitialLoadEndRef.current = true;
+            onInitialLoadEnd?.();
+          }
           // Don't hide the overlay here — wait for the "ready" bridge
           // message from the web app (sent after auth hydration).
           // Fallback: hide after 2 seconds if the signal never arrives.
@@ -420,11 +425,7 @@ export function ChravelWebView({ onError }: ChravelWebViewProps) {
 
       {isLoading && (
         <View style={styles.loadingOverlay}>
-          <Image
-            source={require("../assets/splash.png")}
-            style={styles.loadingLogo}
-            resizeMode="contain"
-          />
+          <Text style={styles.loadingTitle}>Chravel</Text>
           <ActivityIndicator
             size="small"
             color="#c49746"
@@ -460,9 +461,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  loadingLogo: {
-    width: 320,
-    height: 240,
+  loadingTitle: {
+    color: "#c49746",
+    fontSize: 30,
+    fontWeight: "700",
+    letterSpacing: 0.8,
     marginBottom: 24,
   },
   loadingSpinner: {
