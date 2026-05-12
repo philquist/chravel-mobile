@@ -42,6 +42,7 @@ import {
 import { VoiceBridge, type VoiceBridgeMessage } from "./voiceBridge";
 import { evaluateWebViewRequestPolicy } from "./webViewRequestFilter";
 import { evaluateReadyDecision } from "./authRouting";
+import { GradientText } from "./GradientText";
 
 interface ChravelWebViewProps {
   onError: () => void;
@@ -426,7 +427,7 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
 
       {isLoading && (
         <View style={styles.loadingOverlay}>
-          <Text style={styles.splashTitle}>ChravelApp</Text>
+          <GradientText style={styles.splashTitle}>ChravelApp</GradientText>
           <Image
             source={require("../assets/splash-icon.png")}
             style={styles.splashGlobe}
@@ -451,7 +452,7 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
           pointerEvents="none"
           style={[styles.authBrandContainer, { top: insets.top + 56 }]}
         >
-          <Text style={styles.authBrandText}>ChravelApp</Text>
+          <GradientText style={styles.authBrandText}>ChravelApp</GradientText>
         </View>
       )}
     </View>
@@ -475,7 +476,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   splashTitle: {
-    color: "#c49746",
     fontSize: 36,
     fontWeight: "800",
     letterSpacing: 0.5,
@@ -508,7 +508,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   authBrandText: {
-    color: "#c49746",
     fontSize: 28,
     fontWeight: "700",
     letterSpacing: 0.8,
