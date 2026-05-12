@@ -221,25 +221,30 @@ module.exports = ({ config }) => ({
                 "expo-splash-screen",
                 {
                   backgroundColor: "#0b0b0f",
-                  image: "./assets/splash-icon.png",
-                  imageWidth: 200,
+                  image: "./assets/splash-lockup.png",
+                  imageWidth: 320,
                   resizeMode: "contain",
-                  spinnerColor: "#c49746",
-                  iosSpinnerStyle: "small",
-                  androidSpinnerStyle: "small",
                   dark: {
                     backgroundColor: "#0b0b0f",
                   },
                   ios: {
                     backgroundColor: "#0b0b0f",
-                    image: "./assets/splash-icon.png",
-                    imageWidth: 200,
+                    image: "./assets/splash-lockup.png",
+                    imageWidth: 320,
                     resizeMode: "contain",
                   },
                   android: {
                     backgroundColor: "#0b0b0f",
+                    // Android 12+ masks the splash icon to an inscribed
+                    // circle, so the portrait lockup used on iOS would
+                    // clip the wordmark/tagline. splash-icon-android.png
+                    // is composed (see regenerate.py chord math) so the
+                    // globe + gradient ChravelApp wordmark + tagline all
+                    // sit inside the masked circle. imageWidth 240 ≈ the
+                    // Android 12+ icon canvas — large enough for the
+                    // tagline to remain legible on phone-class densities.
                     image: "./assets/splash-icon-android.png",
-                    imageWidth: 200,
+                    imageWidth: 240,
                     resizeMode: "contain",
                   },
                 },

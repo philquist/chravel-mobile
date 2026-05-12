@@ -35,9 +35,10 @@ assets/brand/
 | `assets/android-icon-foreground.png`          | Android adaptive launcher foreground          |
 | `assets/android-icon-background.png`          | Android adaptive launcher background tile     |
 | `assets/android-icon-monochrome.png`          | Android 13+ themed-icon mono (not yet wired)  |
-| `assets/splash.png`                           | iOS launch screen + pre-Android-12 splash     |
-| `assets/splash-icon-android.png`              | Android 12+ Splash Screen API (192dp circle)  |
-| `assets/splash-icon.png`                      | Globe-only fallback (kept for compatibility)  |
+| `assets/splash-lockup.png`                    | **Active (iOS cold launch + JS loading overlay on both platforms)** — full lockup: globe + gradient `ChravelApp` + white tagline on `#0b0b0f`. The native iOS splash and the in-app loading overlay use this same PNG so there's no visual seam at hand-off. |
+| `assets/splash-icon-android.png`              | **Active (Android 12+ cold launch only)** — same three elements (globe + gradient `ChravelApp` + tagline) but laid out inside the inscribed circle the OS will clip the splash icon to. Layout measurements (in `regenerate.py`): wordmark center y=560 chord 1018 px (>617 width), tagline bottom y=731 chord 928 px (>828 width with ≈±50 px margin). Rendered via `expo-splash-screen` with `imageWidth: 240`. The JS overlay then shows the iOS-style portrait lockup. |
+| `assets/splash.png`                           | Legacy master composition. No longer wired into runtime; kept as the regenerate.py input for derivatives. |
+| `assets/splash-icon.png`                      | Legacy globe-only fallback. No longer wired.  |
 
 `app.config.js` is the single config point — never hand-edit native projects, EAS regenerates them on every build.
 

@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Image,
   Platform,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
@@ -427,22 +425,10 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
 
       {isLoading && (
         <View style={styles.loadingOverlay}>
-          <GradientText style={styles.splashTitle}>ChravelApp</GradientText>
           <Image
-            source={require("../assets/splash-icon.png")}
-            style={styles.splashGlobe}
+            source={require("../assets/splash-lockup.png")}
+            style={styles.splashLockup}
             resizeMode="contain"
-          />
-          <Text style={styles.splashTagline}>
-            <Text style={styles.splashTaglineWhite}>Less </Text>
-            <Text style={styles.splashTaglineGold}>Chaos </Text>
-            <Text style={styles.splashTaglineWhite}>More </Text>
-            <Text style={styles.splashTaglineGold}>Coordination</Text>
-          </Text>
-          <ActivityIndicator
-            size="small"
-            color="#c49746"
-            style={styles.loadingSpinner}
           />
         </View>
       )}
@@ -473,33 +459,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#0b0b0f",
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 32,
   },
-  splashTitle: {
-    fontSize: 36,
-    fontWeight: "800",
-    letterSpacing: 0.5,
-    marginBottom: 28,
-  },
-  splashGlobe: {
-    width: 160,
-    height: 160,
-    marginBottom: 28,
-  },
-  splashTagline: {
-    fontSize: 18,
-    fontWeight: "600",
-    letterSpacing: 0.3,
-    textAlign: "center",
-  },
-  splashTaglineWhite: {
-    color: "#FFFFFF",
-  },
-  splashTaglineGold: {
-    color: "#c49746",
-  },
-  loadingSpinner: {
-    marginTop: 24,
+  splashLockup: {
+    width: "70%",
+    height: "70%",
   },
   authBrandContainer: {
     position: "absolute",
