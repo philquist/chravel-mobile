@@ -40,7 +40,6 @@ import {
 import { VoiceBridge, type VoiceBridgeMessage } from "./voiceBridge";
 import { evaluateWebViewRequestPolicy } from "./webViewRequestFilter";
 import { evaluateReadyDecision } from "./authRouting";
-import { GradientText } from "./GradientText";
 
 interface ChravelWebViewProps {
   onError: () => void;
@@ -58,7 +57,6 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
   const isReadyRef = useRef(false);
   const initialUrlRef = useRef<string | null>(null);
   const loadingHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [showAuthBrand, setShowAuthBrand] = useState(true);
   const hasReportedInitialLoadEndRef = useRef(false);
 
   const clearLoadingFallbackTimer = useCallback(() => {
@@ -379,7 +377,6 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
           const url = navState.url ?? "";
           currentUrlRef.current = url;
           const onAuth = isAuthScreenUrl(url);
-          setShowAuthBrand(onAuth);
 
           if (wasOnAuthRef.current && !onAuth && url.startsWith(WEB_APP_URL)) {
             if (isAuthRedirectRef.current) {
@@ -433,14 +430,6 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
         </View>
       )}
 
-      {showAuthBrand && (
-        <View
-          pointerEvents="none"
-          style={[styles.authBrandContainer, { top: insets.top + 56 }]}
-        >
-          <GradientText style={styles.authBrandText}>ChravelApp</GradientText>
-        </View>
-      )}
     </View>
   );
 }
@@ -463,16 +452,5 @@ const styles = StyleSheet.create({
   splashLockup: {
     width: "70%",
     height: "70%",
-  },
-  authBrandContainer: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    alignItems: "center",
-  },
-  authBrandText: {
-    fontSize: 28,
-    fontWeight: "700",
-    letterSpacing: 0.8,
   },
 });
