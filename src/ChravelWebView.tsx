@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   Platform,
   StyleSheet,
   Text,
@@ -41,6 +42,7 @@ import {
 import { VoiceBridge, type VoiceBridgeMessage } from "./voiceBridge";
 import { evaluateWebViewRequestPolicy } from "./webViewRequestFilter";
 import { evaluateReadyDecision } from "./authRouting";
+import { GradientText } from "./GradientText";
 
 interface ChravelWebViewProps {
   onError: () => void;
@@ -425,7 +427,18 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
 
       {isLoading && (
         <View style={styles.loadingOverlay}>
-          <Text style={styles.loadingTitle}>Chravel</Text>
+          <GradientText style={styles.splashTitle}>ChravelApp</GradientText>
+          <Image
+            source={require("../assets/splash-icon.png")}
+            style={styles.splashGlobe}
+            resizeMode="contain"
+          />
+          <Text style={styles.splashTagline}>
+            <Text style={styles.splashTaglineWhite}>Less </Text>
+            <Text style={styles.splashTaglineGold}>Chaos </Text>
+            <Text style={styles.splashTaglineWhite}>More </Text>
+            <Text style={styles.splashTaglineGold}>Coordination</Text>
+          </Text>
           <ActivityIndicator
             size="small"
             color="#c49746"
@@ -439,7 +452,7 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
           pointerEvents="none"
           style={[styles.authBrandContainer, { top: insets.top + 56 }]}
         >
-          <Text style={styles.authBrandText}>ChravelApp</Text>
+          <GradientText style={styles.authBrandText}>ChravelApp</GradientText>
         </View>
       )}
     </View>
@@ -460,16 +473,33 @@ const styles = StyleSheet.create({
     backgroundColor: "#0b0b0f",
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: 32,
   },
-  loadingTitle: {
+  splashTitle: {
+    fontSize: 36,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    marginBottom: 28,
+  },
+  splashGlobe: {
+    width: 160,
+    height: 160,
+    marginBottom: 28,
+  },
+  splashTagline: {
+    fontSize: 18,
+    fontWeight: "600",
+    letterSpacing: 0.3,
+    textAlign: "center",
+  },
+  splashTaglineWhite: {
+    color: "#FFFFFF",
+  },
+  splashTaglineGold: {
     color: "#c49746",
-    fontSize: 30,
-    fontWeight: "700",
-    letterSpacing: 0.8,
-    marginBottom: 24,
   },
   loadingSpinner: {
-    marginTop: 8,
+    marginTop: 24,
   },
   authBrandContainer: {
     position: "absolute",
@@ -478,7 +508,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   authBrandText: {
-    color: "#c49746",
     fontSize: 28,
     fontWeight: "700",
     letterSpacing: 0.8,

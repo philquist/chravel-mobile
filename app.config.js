@@ -221,6 +221,9 @@ module.exports = ({ config }) => ({
                 "expo-splash-screen",
                 {
                   backgroundColor: "#0b0b0f",
+                  image: "./assets/splash-icon.png",
+                  imageWidth: 200,
+                  resizeMode: "contain",
                   spinnerColor: "#c49746",
                   iosSpinnerStyle: "small",
                   androidSpinnerStyle: "small",
@@ -229,9 +232,15 @@ module.exports = ({ config }) => ({
                   },
                   ios: {
                     backgroundColor: "#0b0b0f",
+                    image: "./assets/splash-icon.png",
+                    imageWidth: 200,
+                    resizeMode: "contain",
                   },
                   android: {
                     backgroundColor: "#0b0b0f",
+                    image: "./assets/splash-icon-android.png",
+                    imageWidth: 200,
+                    resizeMode: "contain",
                   },
                 },
               ],
