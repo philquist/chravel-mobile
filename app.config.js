@@ -236,13 +236,15 @@ module.exports = ({ config }) => ({
                   android: {
                     backgroundColor: "#0b0b0f",
                     // Android 12+ masks the splash icon to an inscribed
-                    // circle, so the portrait lockup would clip the
-                    // wordmark/tagline. splash-icon-android.png is sized
-                    // (see regenerate.py chord math) so globe + tagline
-                    // survive the circular mask. The JS loading overlay
-                    // then shows the full lockup once RN mounts.
+                    // circle, so the portrait lockup used on iOS would
+                    // clip the wordmark/tagline. splash-icon-android.png
+                    // is composed (see regenerate.py chord math) so the
+                    // globe + gradient ChravelApp wordmark + tagline all
+                    // sit inside the masked circle. imageWidth 240 ≈ the
+                    // Android 12+ icon canvas — large enough for the
+                    // tagline to remain legible on phone-class densities.
                     image: "./assets/splash-icon-android.png",
-                    imageWidth: 200,
+                    imageWidth: 240,
                     resizeMode: "contain",
                   },
                 },
