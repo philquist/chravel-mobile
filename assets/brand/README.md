@@ -35,9 +35,9 @@ assets/brand/
 | `assets/android-icon-foreground.png`          | Android adaptive launcher foreground          |
 | `assets/android-icon-background.png`          | Android adaptive launcher background tile     |
 | `assets/android-icon-monochrome.png`          | Android 13+ themed-icon mono (not yet wired)  |
-| `assets/splash-lockup.png`                    | **Active** — iOS + Android cold-launch splash AND in-app loading overlay (full lockup: globe + gradient `ChravelApp` + tagline). Single source of truth, no visual seam at hand-off. |
+| `assets/splash-lockup.png`                    | **Active (iOS cold launch + JS loading overlay on both platforms)** — full lockup: globe + gradient `ChravelApp` + white tagline on `#0b0b0f`. The native iOS splash and the in-app loading overlay use this same PNG so there's no visual seam at hand-off. |
+| `assets/splash-icon-android.png`              | **Active (Android 12+ cold launch only)** — globe + tagline tuned for the circular splash mask. Android cannot use the portrait lockup because anything outside the inscribed circle would be clipped. The JS overlay shows the full lockup once RN mounts. |
 | `assets/splash.png`                           | Legacy master composition. No longer wired into runtime; kept as the regenerate.py input for derivatives. |
-| `assets/splash-icon-android.png`              | Legacy Android 12+ icon (globe + tagline burned in). No longer wired — superseded by the lockup. |
 | `assets/splash-icon.png`                      | Legacy globe-only fallback. No longer wired.  |
 
 `app.config.js` is the single config point — never hand-edit native projects, EAS regenerates them on every build.

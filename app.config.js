@@ -235,8 +235,14 @@ module.exports = ({ config }) => ({
                   },
                   android: {
                     backgroundColor: "#0b0b0f",
-                    image: "./assets/splash-lockup.png",
-                    imageWidth: 320,
+                    // Android 12+ masks the splash icon to an inscribed
+                    // circle, so the portrait lockup would clip the
+                    // wordmark/tagline. splash-icon-android.png is sized
+                    // (see regenerate.py chord math) so globe + tagline
+                    // survive the circular mask. The JS loading overlay
+                    // then shows the full lockup once RN mounts.
+                    image: "./assets/splash-icon-android.png",
+                    imageWidth: 200,
                     resizeMode: "contain",
                   },
                 },
