@@ -72,4 +72,71 @@ out.paste(canvas, mask=canvas.split()[3])
 out.save('assets/splash-icon-android.png', 'PNG', optimize=True)
 out.save('assets/brand/icons/android-splash-icon.png', 'PNG', optimize=True)
 
+# Full splash lockup (single asset used by both iOS expo-splash-screen and the
+# JS loading overlay so the cold-launch -> WebView-ready handoff has no visual
+# seam). Portrait canvas sized for contain-fit on common phone aspect ratios.
+GOLD_STOPS = [(0.0, (255, 215, 0)), (0.5, (212, 175, 55)), (1.0, (184, 134, 11))]  # #FFD700 #D4AF37 #B8860B
+
+
+def gradient_band(width, height, stops):
+    """Horizontal gradient image (RGBA) interpolating between stops [(t, rgb), ...]."""
+    band = Image.new('RGBA', (width, height))
+    px = band.load()
+    for x in range(width):
+        t = x / max(1, width - 1)
+        for i in range(len(stops) - 1):
+            t0, c0 = stops[i]
+            t1, c1 = stops[i + 1]
+            if t0 <= t <= t1:
+                u = (t - t0) / max(1e-9, t1 - t0)
+                r = round(c0[0] + (c1[0] - c0[0]) * u)
+                g = round(c0[1] + (c1[1] - c0[1]) * u)
+                b = round(c0[2] + (c1[2] - c0[2]) * u)
+                break
+        for y in range(height):
+            px[x, y] = (r, g, b, 255)
+    return band
+
+
+def paste_gradient_text(canvas, text, font, cx, cy, stops):
+    """Draw `text` centered at (cx, cy) using a horizontal gradient fill."""
+    tmp_draw = ImageDraw.Draw(canvas)
+    bbox = tmp_draw.textbbox((0, 0), text, font=font)
+    w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    mask = Image.new('L', (w, h), 0)
+    ImageDraw.Draw(mask).text((-bbox[0], -bbox[1]), text, font=font, fill=255)
+    band = gradient_band(w, h, stops)
+    canvas.paste(band, (cx - w // 2 - bbox[0], cy - h // 2 - bbox[1]), mask)
+
+
+LOCKUP_W, LOCKUP_H = 1242, 2208
+GLOBE_W = 720
+canvas = Image.new('RGB', (LOCKUP_W, LOCKUP_H), BG[:3])
+canvas_rgba = canvas.convert('RGBA')
+
+# Globe at top third
+globe = GLOBE_ALPHA.resize((GLOBE_W, GLOBE_W), Image.LANCZOS)
+globe_x = (LOCKUP_W - GLOBE_W) // 2
+globe_y = int(LOCKUP_H * 0.22)
+canvas_rgba.paste(globe, (globe_x, globe_y), globe)
+
+# "ChravelApp" gold gradient wordmark
+title_font = ImageFont.truetype(FONT_BOLD, 200)
+paste_gradient_text(canvas_rgba, 'ChravelApp', title_font,
+                    LOCKUP_W // 2, globe_y + GLOBE_W + 200, GOLD_STOPS)
+
+# "Less Chaos More Coordination" tagline in white
+tag_font = ImageFont.truetype(FONT_BOLD, 76)
+tag_draw = ImageDraw.Draw(canvas_rgba)
+tag = 'Less Chaos More Coordination'
+tbox = tag_draw.textbbox((0, 0), tag, font=tag_font)
+tag_w = tbox[2] - tbox[0]
+tag_draw.text(((LOCKUP_W - tag_w) // 2 - tbox[0],
+               globe_y + GLOBE_W + 380 - tbox[1]), tag, font=tag_font, fill=WHITE)
+
+lockup_out = Image.new('RGB', (LOCKUP_W, LOCKUP_H), BG[:3])
+lockup_out.paste(canvas_rgba, mask=canvas_rgba.split()[3])
+lockup_out.save('assets/splash-lockup.png', 'PNG', optimize=True)
+lockup_out.save('assets/brand/icons/splash-lockup.png', 'PNG', optimize=True)
+
 print('OK')
