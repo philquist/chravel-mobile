@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Image,
+  ActivityIndicator,
   Platform,
   StyleSheet,
   View,
@@ -422,11 +422,7 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
 
       {isLoading && (
         <View style={styles.loadingOverlay}>
-          <Image
-            source={require("../assets/splash-lockup.png")}
-            style={styles.splashLockup}
-            resizeMode="contain"
-          />
+          <ActivityIndicator size="small" color={COLORS.foreground} />
         </View>
       )}
 
@@ -445,7 +441,7 @@ const styles = StyleSheet.create({
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#0b0b0f",
+    backgroundColor: COLORS.background,
     justifyContent: "center",
     alignItems: "center",
   },
