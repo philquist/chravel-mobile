@@ -5,13 +5,25 @@ Requires: pip3 install Pillow
 See assets/brand/README.md for what each output is used for.
 """
 from PIL import Image, ImageDraw, ImageFont, ImageOps
+from pathlib import Path
 
 BG = (11, 11, 15, 255)  # #0b0b0f — splash backgroundColor in app.config.js
 GOLD = (196, 151, 70, 255)
 WHITE = (255, 255, 255, 255)
+TAGLINE_WHITE = WHITE
 GOLD_STOPS = [(0.0, (255, 215, 0)), (0.5, (212, 175, 55)), (1.0, (184, 134, 11))]  # #FFD700 #D4AF37 #B8860B
-FONT_BOLD = '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf'
+FONT_BOLD_CANDIDATES = [
+        '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+]
 
+
+def load_bold_font(size):
+        for font_path in FONT_BOLD_CANDIDATES:
+                    if Path(font_path).exists():
+                                    return ImageFont.truetype(font_path, size)
+    raise FileNotFoundError(f'No supported bold font found. Tried: {FONT_BOLD_CANDIDATES}')
+            
 LAUNCHER = Image.open('assets/brand/source/launcher-icon-master.png').convert('RGBA')
 SPLASH_MASTER = Image.open('assets/brand/source/splash-master.png').convert('RGB')
 GLOBE_ALPHA = Image.open('assets/brand/source/splash-icon-master-alpha.png').convert('RGBA')
@@ -103,11 +115,11 @@ canvas = Image.new('RGBA', (SIZE, SIZE), BG)
 globe = GLOBE_ALPHA.resize((GLOBE_DIAM, GLOBE_DIAM), Image.LANCZOS)
 canvas.paste(globe, ((SIZE - GLOBE_DIAM) // 2, GLOBE_CY - GLOBE_DIAM // 2), globe)
 paste_gradient_text(canvas, 'ChravelApp',
-                    ImageFont.truetype(FONT_BOLD, 110),
+                    load_bold_font(110),
                     SIZE // 2, 560, GOLD_STOPS)
 paste_text_centered(canvas, 'Less Chaos More Coordination',
-                    ImageFont.truetype(FONT_BOLD, 56),
-                    SIZE // 2, 710, WHITE)
+                    load_bold_font(56),
+                    SIZE // 2, 710, TAGLINE_WHITE)
 
 out = Image.new('RGB', (SIZE, SIZE), BG[:3])
 out.paste(canvas, mask=canvas.split()[3])
@@ -124,11 +136,11 @@ globe = GLOBE_ALPHA.resize((GLOBE_W, GLOBE_W), Image.LANCZOS)
 globe_y = int(LOCKUP_H * 0.22)
 canvas.paste(globe, ((LOCKUP_W - GLOBE_W) // 2, globe_y), globe)
 paste_gradient_text(canvas, 'ChravelApp',
-                    ImageFont.truetype(FONT_BOLD, 200),
+                    load_bold_font(200),
                     LOCKUP_W // 2, globe_y + GLOBE_W + 200, GOLD_STOPS)
 paste_text_centered(canvas, 'Less Chaos More Coordination',
-                    ImageFont.truetype(FONT_BOLD, 76),
-                    LOCKUP_W // 2, globe_y + GLOBE_W + 380, WHITE)
+                    load_bold_font(76),
+                    LOCKUP_W // 2, globe_y + GLOBE_W + 380, TAGLINE_WHITE)
 
 lockup_out = Image.new('RGB', (LOCKUP_W, LOCKUP_H), BG[:3])
 lockup_out.paste(canvas, mask=canvas.split()[3])
@@ -136,3 +148,4 @@ lockup_out.save('assets/splash-lockup.png', 'PNG', optimize=True)
 lockup_out.save('assets/brand/icons/splash-lockup.png', 'PNG', optimize=True)
 
 print('OK')
+h
