@@ -179,9 +179,19 @@ export function buildInjectedJS(platform: string, bottomInset: number = 0, isTab
         el.setAttribute('data-chravel-scroll-patched', '1');
       }
 
-      function makeTabRowsScrollable() {
+      function isChatSurfaceRoute() {
         try {
-          var nodes = document.querySelectorAll('nav, [role="tablist"], [data-testid*="tab"], [class*="tab"], [class*="segment"]');
+          var path = String(window.location && window.location.pathname ? window.location.pathname : '').toLowerCase();
+          return path.indexOf('/messages') !== -1 || path.indexOf('/chat') !== -1 || path.indexOf('/concierge') !== -1 || path.indexOf('/broadcast') !== -1;
+        } catch (_error) {
+          return false;
+        }
+      }
+
+      function makeTabRowsScrollable() {
+        if (!isChatSurfaceRoute()) return;
+        try {
+          var nodes = document.querySelectorAll('[role="tablist"], [data-testid*="tab"], [class*="tab"], [class*="segment"]');
           for (var i = 0; i < nodes.length; i++) {
             var el = nodes[i];
             if (!el || !el.children || el.children.length < 3) continue;
