@@ -18,7 +18,7 @@ if (IS_PROD) {
 
 module.exports = ({ config }) => ({
     ...config,
-        name: "Chravel",
+        name: "ChravelApp",
         slug: "chravel-mobile",
         owner: "meechyourgoals",
         version: "1.0.0",
@@ -45,6 +45,7 @@ module.exports = ({ config }) => ({
               NSMicrophoneUsageDescription: "Chravel uses your microphone for AI Concierge voice conversations when you tap the mic.",
               NSSpeechRecognitionUsageDescription: "Chravel uses speech recognition to transcribe your voice input for AI Concierge and chat dictation.",
               ITSAppUsesNonExemptEncryption: false,
+              CFBundleDisplayName: "ChravelApp",
         },
             associatedDomains: ["applinks:chravel.app", "applinks:www.chravel.app", "webcredentials:chravel.app"],
             entitlements: {
