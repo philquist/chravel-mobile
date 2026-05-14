@@ -39,7 +39,10 @@ import {
   getCustomerInfo,
 } from "./revenuecat";
 import { VoiceBridge, type VoiceBridgeMessage } from "./voiceBridge";
-import { evaluateWebViewRequestPolicy } from "./webViewRequestFilter";
+import {
+  evaluateWebViewRequestPolicy,
+  isOAuthAuthorizeUrl,
+} from "./webViewRequestFilter";
 import { evaluateReadyDecision } from "./authRouting";
 
 interface ChravelWebViewProps {
@@ -117,6 +120,28 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
       navigateWebView(path);
     },
     [navigateWebView, clearLoadingFallbackTimer],
+  );
+
+  /**
+   * Open an IdP authorize URL via the OS auth session so Supabase can redirect
+   * back to chravel://auth-callback and the main WebView (which shares storage
+   * with chravel.app) can run detectSessionInUrl.
+   */
+  const openOAuthAuthSession = useCallback(
+    async (url: string) => {
+      const nativeAuthUrl = rewriteOAuthUrlForNativeCallback(url);
+      const result = await WebBrowser.openAuthSessionAsync(
+        nativeAuthUrl,
+        NATIVE_OAUTH_CALLBACK_URL,
+      );
+      if (result.type === "success" && result.url) {
+        const nextPath = parseDeepLinkUrl(result.url);
+        if (nextPath && isNativeAuthReturnPath(nextPath)) {
+          handleIncomingPath(nextPath);
+        }
+      }
+    },
+    [handleIncomingPath],
   );
 
   useEffect(() => {
@@ -223,22 +248,23 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
 
       case "browser:open":
         if (message.url) {
-          await WebBrowser.openBrowserAsync(message.url, {
-            presentationStyle: WebBrowser.WebBrowserPresentationStyle.POPOVER,
-          });
+          // chravel-web's openInstalledAuthBrowser prefers
+          // Capacitor.Plugins.Browser.open() for OAuth. Route those through
+          // an auth session so the redirect to chravel://auth-callback is
+          // captured and the main WebView can hydrate the Supabase session.
+          if (isOAuthAuthorizeUrl(message.url)) {
+            await openOAuthAuthSession(message.url);
+          } else {
+            await WebBrowser.openBrowserAsync(message.url, {
+              presentationStyle: WebBrowser.WebBrowserPresentationStyle.POPOVER,
+            });
+          }
         }
         break;
 
       case "oauth:open":
         if (message.url) {
-          const nativeAuthUrl = rewriteOAuthUrlForNativeCallback(message.url);
-          const result = await WebBrowser.openAuthSessionAsync(nativeAuthUrl, NATIVE_OAUTH_CALLBACK_URL);
-          if (result.type === "success" && result.url) {
-            const nextPath = parseDeepLinkUrl(result.url);
-            if (nextPath && isNativeAuthReturnPath(nextPath)) {
-              handleIncomingPath(nextPath);
-            }
-          }
+          await openOAuthAuthSession(message.url);
         }
         break;
 
@@ -329,7 +355,7 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
         break;
       }
     }
-  }, [handleIncomingPath, clearLoadingFallbackTimer, scheduleLoadingFallback]);
+  }, [handleIncomingPath, clearLoadingFallbackTimer, scheduleLoadingFallback, openOAuthAuthSession]);
 
   // ── URL filter ──────────────────────────────────────────────
 
@@ -344,18 +370,7 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
       if (decision.externalUrlToOpen) {
         if (decision.openInAppBrowser) {
           if (decision.useAuthSession) {
-            const nativeAuthUrl = rewriteOAuthUrlForNativeCallback(decision.externalUrlToOpen);
-            void WebBrowser.openAuthSessionAsync(
-              nativeAuthUrl,
-              NATIVE_OAUTH_CALLBACK_URL,
-            ).then((result) => {
-              if (result.type === "success" && result.url) {
-                const nextPath = parseDeepLinkUrl(result.url);
-                if (nextPath && isNativeAuthReturnPath(nextPath)) {
-                  handleIncomingPath(nextPath);
-                }
-              }
-            });
+            void openOAuthAuthSession(decision.externalUrlToOpen);
           } else {
             void WebBrowser.openBrowserAsync(decision.externalUrlToOpen, {
               presentationStyle: WebBrowser.WebBrowserPresentationStyle.POPOVER,
@@ -368,7 +383,7 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
 
       return decision.allowInWebView;
     },
-    [handleIncomingPath],
+    [openOAuthAuthSession],
   );
 
   // ── Render ──────────────────────────────────────────────────

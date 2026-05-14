@@ -37,6 +37,22 @@ function isAllowedChravelWebOrigin(url: string): boolean {
   }
 }
 
+/**
+ * Identifies URLs that must be opened via an OS auth session
+ * (ASWebAuthenticationSession / Custom Tabs Intent) so the IdP can
+ * redirect back to chravel://auth-callback. Used both for WebView-initiated
+ * navigations and for explicit `Capacitor.Plugins.Browser.open`/
+ * `ChravelNative.openOAuthUrl` calls from the web app.
+ */
+export function isOAuthAuthorizeUrl(url: string): boolean {
+  return (
+    url.includes("accounts.google.com") ||
+    url.includes("appleid.apple.com") ||
+    (url.includes("supabase.co") &&
+      (url.includes("provider=google") || url.includes("provider=apple")))
+  );
+}
+
 export function evaluateWebViewRequestPolicy({
   url,
   isTopFrame,
@@ -50,13 +66,7 @@ export function evaluateWebViewRequestPolicy({
     return { allowInWebView: true };
   }
 
-  const isOAuthURL =
-    url.includes("accounts.google.com") ||
-    url.includes("appleid.apple.com") ||
-    (url.includes("supabase.co") &&
-      (url.includes("provider=google") || url.includes("provider=apple")));
-
-  if (isOAuthURL) {
+  if (isOAuthAuthorizeUrl(url)) {
     return {
       allowInWebView: false,
       externalUrlToOpen: url,
