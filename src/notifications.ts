@@ -69,19 +69,34 @@ export async function registerForPushNotifications(): Promise<PushTokenResult> {
 export function parseNotificationPayload(
   data: Record<string, unknown>
 ): { type: PushType; tripId: string; [key: string]: unknown } | null {
-  if (
-    !data ||
-    typeof data.type !== "string" ||
-    typeof data.tripId !== "string"
-  ) {
+  if (!data) return null;
+
+  const type = typeof data.type === "string" ? data.type : null;
+  const tripId = typeof data.tripId === "string" ? data.tripId : null;
+
+  if (!type || !tripId) {
     return null;
   }
 
-  if (!PUSH_TYPES.includes(data.type as PushType)) {
+  if (!PUSH_TYPES.includes(type as PushType)) {
     return null;
   }
 
-  return data as { type: PushType; tripId: string };
+  return { ...data, type, tripId } as { type: PushType; tripId: string };
+}
+
+/**
+ * Normalize route-affecting IDs from provider-specific key variants.
+ * APNs can contain kebab-case keys such as thread-id while backend JSON often uses camelCase.
+ */
+function getPayloadId(payload: Record<string, unknown>, ...keys: string[]): string | null {
+  for (const key of keys) {
+    const value = payload[key];
+    if (typeof value === "string" && value.length > 0) {
+      return value;
+    }
+  }
+  return null;
 }
 
 /**
@@ -94,7 +109,11 @@ export function getNotificationDeepLink(
   const payload = parseNotificationPayload(data);
   if (!payload) return null;
 
-  const { type, tripId, threadId, eventId, pollId, taskId } = payload as Record<string, string>;
+  const { type, tripId } = payload as Record<string, string>;
+  const threadId = getPayloadId(payload, "threadId", "thread_id", "thread-id");
+  const eventId = getPayloadId(payload, "eventId", "event_id", "event-id");
+  const pollId = getPayloadId(payload, "pollId", "poll_id", "poll-id");
+  const taskId = getPayloadId(payload, "taskId", "task_id", "task-id");
 
   switch (type) {
     case "chat_message":
