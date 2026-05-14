@@ -53,7 +53,7 @@ describe("createWavHeader", () => {
 describe("Base64 Utilities", () => {
   const testCases = [
     { bytes: new Uint8Array([0, 1, 2]), b64: "AAEC" },
-    { bytes: new Uint8Array([255, 254, 253]), b64: "/f79" },
+    { bytes: new Uint8Array([255, 254, 253]), b64: "//79" },
     { bytes: new Uint8Array([72, 101, 108, 108, 111]), b64: "SGVsbG8=" },
     { bytes: new Uint8Array([]), b64: "" },
     { bytes: new Uint8Array([1]), b64: "AQ==" },
