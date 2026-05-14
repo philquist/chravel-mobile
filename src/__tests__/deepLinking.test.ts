@@ -15,6 +15,7 @@ import {
   buildNativeAuthLaunchUrl,
   NATIVE_OAUTH_CALLBACK_URL,
   rewriteOAuthUrlForNativeCallback,
+  isNativeAuthReturnPath,
 } from "../deepLinking";
 
 describe("isAuthScreenUrl", () => {
@@ -182,5 +183,20 @@ describe("rewriteOAuthUrlForNativeCallback", () => {
   it("fails open on malformed urls", () => {
     const url = "not a url";
     expect(rewriteOAuthUrlForNativeCallback(url)).toBe(url);
+  });
+});
+
+describe("isNativeAuthReturnPath", () => {
+  it("accepts legacy auth-callback route", () => {
+    expect(isNativeAuthReturnPath("/auth-callback#access_token=x")).toBe(true);
+  });
+
+  it("accepts /auth callback-style routes", () => {
+    expect(isNativeAuthReturnPath("/auth#access_token=x")).toBe(true);
+    expect(isNativeAuthReturnPath("/auth/callback?code=123")).toBe(true);
+  });
+
+  it("rejects non-auth routes", () => {
+    expect(isNativeAuthReturnPath("/trip/abc")).toBe(false);
   });
 });

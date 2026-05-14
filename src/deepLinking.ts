@@ -63,6 +63,19 @@ export const AUTH_LAUNCH_PATH = "/auth";
 export const NATIVE_OAUTH_CALLBACK_URL = "chravel://auth-callback";
 
 /**
+ * Auth providers/callback handlers may return to multiple auth endpoints.
+ * Treat all of these as valid native auth return paths.
+ */
+export function isNativeAuthReturnPath(path: string): boolean {
+  return (
+    path.startsWith("/auth-callback") ||
+    path === "/auth" ||
+    path.startsWith("/auth/") ||
+    path.startsWith("/auth#")
+  );
+}
+
+/**
  * Rewrites Supabase/IdP authorize URLs so native OAuth callbacks resolve to
  * the app scheme instead of a web-only callback page.
  */
