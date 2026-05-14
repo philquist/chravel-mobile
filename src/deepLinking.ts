@@ -1,4 +1,5 @@
 import * as Linking from "expo-linking";
+import Constants from "expo-constants";
 import { WEB_APP_URL } from "./constants";
 import { isAuthScreenUrl } from "./authUrl";
 
@@ -108,9 +109,39 @@ export function buildWebViewLaunchUrl(path: string): string {
   return target.toString();
 }
 
-/** Native shell launch target contract: /auth?app_context=native. */
+/**
+ * Build a stable per-build cache-bust token. Each EAS build bumps either
+ * version or buildNumber/versionCode, so this token changes for every
+ * shipped app — forcing WKWebView/Chrome WebView to refetch the HTML
+ * document on cold launch and pick up any Vercel deploy that landed
+ * since the previous app session.
+ */
+export function buildCacheBustParam(): string {
+  const cfg = Constants.expoConfig;
+  const rawVersion = cfg?.version;
+  const version = typeof rawVersion === "string" && rawVersion ? rawVersion : "0.0.0";
+  const iosBuild = cfg?.ios?.buildNumber;
+  const androidBuild = cfg?.android?.versionCode;
+  const build =
+    typeof iosBuild === "string" && iosBuild
+      ? iosBuild
+      : typeof androidBuild === "number"
+        ? String(androidBuild)
+        : "0";
+  return `${version}-${build}`;
+}
+
+/**
+ * Native shell launch target contract: /auth?app_context=native.
+ * Includes a per-build `_v` cache-bust token so a Vercel deploy is
+ * picked up on the next cold launch even if WKWebView/Chrome cached
+ * the previous HTML.
+ */
 export function buildNativeAuthLaunchUrl(): string {
-  return buildWebViewLaunchUrl(AUTH_LAUNCH_PATH);
+  const base = buildWebViewLaunchUrl(AUTH_LAUNCH_PATH);
+  const url = new URL(base);
+  url.searchParams.set("_v", buildCacheBustParam());
+  return url.toString();
 }
 
 /**

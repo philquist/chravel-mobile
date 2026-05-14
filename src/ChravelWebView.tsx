@@ -148,6 +148,31 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
           string,
           unknown
         >;
+        const action = response.actionIdentifier;
+        const isInlineAction =
+          action && action !== Notifications.DEFAULT_ACTION_IDENTIFIER;
+
+        if (isInlineAction) {
+          const userText =
+            (response as Notifications.NotificationResponse & { userText?: string })
+              .userText ?? null;
+          const threadId =
+            (typeof data["thread-id"] === "string" ? (data["thread-id"] as string) : null) ??
+            (typeof data.threadId === "string" ? (data.threadId as string) : null);
+          webViewRef.current?.injectJavaScript(
+            buildWebEvent("chravel:notification-action", {
+              action,
+              userText,
+              type: typeof data.type === "string" ? data.type : null,
+              tripId: typeof data.tripId === "string" ? data.tripId : null,
+              threadId,
+            }),
+          );
+          // Inline actions (Reply, Mark Read) are handled by the web app
+          // without navigating away from the user's current view.
+          if (action === "MARK_READ" || action === "REPLY") return;
+        }
+
         const path = getNotificationDeepLink(data);
         if (path) {
           if (isReadyRef.current) {
@@ -354,7 +379,13 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
 
       <WebView
         ref={webViewRef}
-        source={{ uri: buildNativeAuthLaunchUrl() }}
+        source={{
+          uri: buildNativeAuthLaunchUrl(),
+          headers:
+            Platform.OS === "ios"
+              ? { "Cache-Control": "no-cache" }
+              : undefined,
+        }}
         style={styles.webview}
         injectedJavaScriptBeforeContentLoaded={buildInjectedJS(Platform.OS, insets.bottom, IS_TABLET)}
         onMessage={handleMessage}

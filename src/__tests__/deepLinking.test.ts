@@ -7,12 +7,24 @@ jest.mock("../constants", () => ({
   WEB_APP_URL: "https://chravel.app",
 }));
 
+jest.mock("expo-constants", () => ({
+  __esModule: true,
+  default: {
+    expoConfig: {
+      version: "1.0.0",
+      ios: { buildNumber: "1" },
+      android: { versionCode: 1 },
+    },
+  },
+}));
+
 import {
   buildWebViewLaunchUrl,
   parseDeepLinkUrl,
   isAuthScreenUrl,
   AUTH_LAUNCH_PATH,
   buildNativeAuthLaunchUrl,
+  buildCacheBustParam,
   NATIVE_OAUTH_CALLBACK_URL,
   rewriteOAuthUrlForNativeCallback,
   isNativeAuthReturnPath,
@@ -121,10 +133,29 @@ describe("native auth launch contract", () => {
     expect(AUTH_LAUNCH_PATH).toBe("/auth");
   });
 
-  it("builds /auth?app_context=native from shared helper", () => {
+  it("builds /auth?app_context=native&_v=<build> from shared helper", () => {
     expect(buildNativeAuthLaunchUrl()).toBe(
-      "https://chravel.app/auth?app_context=native",
+      "https://chravel.app/auth?app_context=native&_v=1.0.0-1",
     );
+  });
+});
+
+describe("buildCacheBustParam", () => {
+  it("combines app version and iOS build number", () => {
+    expect(buildCacheBustParam()).toBe("1.0.0-1");
+  });
+
+  it("stamps the native launch URL with the cache-bust token", () => {
+    const url = new URL(buildNativeAuthLaunchUrl());
+    expect(url.searchParams.get("_v")).toBe("1.0.0-1");
+    expect(url.searchParams.get("app_context")).toBe("native");
+  });
+
+  it("does NOT stamp non-initial in-app navigations", () => {
+    // buildWebViewLaunchUrl is used for runtime nav (deep links, notification
+    // taps); the cache-bust token only belongs on the cold-start document.
+    const url = new URL(buildWebViewLaunchUrl("/trip/abc"));
+    expect(url.searchParams.has("_v")).toBe(false);
   });
 });
 

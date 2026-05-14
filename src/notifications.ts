@@ -3,6 +3,34 @@ import * as Device from "expo-device";
 import { Platform } from "react-native";
 import { PUSH_TYPES, type PushType, COLORS } from "./constants";
 
+export type AndroidChannelId = "default" | "chat-messages" | "important-updates";
+
+/**
+ * Map a Chravel push type to the Android notification channel it should
+ * route to. Backend payloads should set `android.channel_id` to this
+ * value so a deploy of a new push type doesn't silently fall through to
+ * "default".
+ */
+export function getChannelForPushType(type: string): AndroidChannelId {
+  if (type === "chat" || type === "chat_message") return "chat-messages";
+  if (type === "broadcast" || type === "broadcast_pinned") return "important-updates";
+  return "default";
+}
+
+/**
+ * iOS notification category identifiers. The backend includes one of
+ * these as `aps.category` so iOS renders the right quick-actions on the
+ * lock screen / banner.
+ */
+export const IOS_NOTIFICATION_CATEGORIES = {
+  CHAT_MESSAGE: "CHAT_MESSAGE",
+  BROADCAST: "BROADCAST",
+  BROADCAST_PINNED: "BROADCAST_PINNED",
+} as const;
+
+export type IosNotificationCategory =
+  (typeof IOS_NOTIFICATION_CATEGORIES)[keyof typeof IOS_NOTIFICATION_CATEGORIES];
+
 async function ensureAndroidNotificationChannels(): Promise<void> {
   if (Platform.OS !== "android") return;
 
@@ -25,6 +53,40 @@ async function ensureAndroidNotificationChannels(): Promise<void> {
       vibrationPattern: [0, 300, 180, 300],
       lightColor: "#F59E0B",
     }),
+  ]);
+}
+
+async function ensureIosNotificationCategories(): Promise<void> {
+  if (Platform.OS !== "ios") return;
+
+  await Promise.all([
+    Notifications.setNotificationCategoryAsync(IOS_NOTIFICATION_CATEGORIES.CHAT_MESSAGE, [
+      {
+        identifier: "REPLY",
+        buttonTitle: "Reply",
+        textInput: { submitButtonTitle: "Send", placeholder: "Message" },
+        options: { opensAppToForeground: false },
+      },
+      {
+        identifier: "MARK_READ",
+        buttonTitle: "Mark as Read",
+        options: { opensAppToForeground: false },
+      },
+    ]),
+    Notifications.setNotificationCategoryAsync(IOS_NOTIFICATION_CATEGORIES.BROADCAST, [
+      {
+        identifier: "VIEW",
+        buttonTitle: "View",
+        options: { opensAppToForeground: true },
+      },
+    ]),
+    Notifications.setNotificationCategoryAsync(IOS_NOTIFICATION_CATEGORIES.BROADCAST_PINNED, [
+      {
+        identifier: "VIEW",
+        buttonTitle: "View",
+        options: { opensAppToForeground: true },
+      },
+    ]),
   ]);
 }
 
@@ -66,7 +128,10 @@ export async function registerForPushNotifications(): Promise<PushTokenResult> {
     return { token: null, error: "Permission not granted" };
   }
 
-  await ensureAndroidNotificationChannels();
+  await Promise.all([
+    ensureAndroidNotificationChannels(),
+    ensureIosNotificationCategories(),
+  ]);
 
   try {
     // Get the native device token (APNs on iOS, FCM on Android).
