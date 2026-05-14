@@ -37,6 +37,7 @@ export type PushType = (typeof PUSH_TYPES)[number];
 export const COLORS = {
   background: "#191817",
   brandBlue: "#3A60D0",
+  foreground: "#FFFFFF",
 } as const;
 
 // Legal URLs — shown on the terms agreement screen before signup.
