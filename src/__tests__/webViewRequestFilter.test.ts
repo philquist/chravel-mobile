@@ -25,6 +25,66 @@ describe("evaluateWebViewRequestPolicy", () => {
 
     expect(result.allowInWebView).toBe(false);
     expect(result.externalUrlToOpen).toBe(malicious);
+    // The SFSafariViewController sheet still shows the real URL in the address
+    // bar, so the trust boundary is preserved while keeping the user in-app.
+    expect(result.openInAppBrowser).toBe(true);
+  });
+
+  it("opens generic https URLs in the in-app browser on native", () => {
+    const result = evaluateWebViewRequestPolicy({
+      url: "https://example.com/article",
+      platformOS: "ios",
+      isTopFrame: true,
+    });
+
+    expect(result.allowInWebView).toBe(false);
+    expect(result.externalUrlToOpen).toBe("https://example.com/article");
+    expect(result.openInAppBrowser).toBe(true);
+    expect(result.useAuthSession).toBeUndefined();
+  });
+
+  it("opens generic https URLs in the in-app browser on Android", () => {
+    const result = evaluateWebViewRequestPolicy({
+      url: "https://example.com/article",
+      platformOS: "android",
+      isTopFrame: true,
+    });
+
+    expect(result.openInAppBrowser).toBe(true);
+  });
+
+  it("falls back to system handler for generic https URLs on web", () => {
+    const result = evaluateWebViewRequestPolicy({
+      url: "https://example.com/article",
+      platformOS: "web",
+      isTopFrame: true,
+    });
+
+    expect(result.allowInWebView).toBe(false);
+    expect(result.externalUrlToOpen).toBe("https://example.com/article");
+    expect(result.openInAppBrowser).toBe(false);
+  });
+
+  it("uses Linking.openURL for mailto: even on native", () => {
+    const result = evaluateWebViewRequestPolicy({
+      url: "mailto:hello@example.com",
+      platformOS: "ios",
+      isTopFrame: true,
+    });
+
+    expect(result.allowInWebView).toBe(false);
+    expect(result.externalUrlToOpen).toBe("mailto:hello@example.com");
+    expect(result.openInAppBrowser).toBe(false);
+  });
+
+  it("uses Linking.openURL for tel: even on native", () => {
+    const result = evaluateWebViewRequestPolicy({
+      url: "tel:+15551234567",
+      platformOS: "android",
+      isTopFrame: true,
+    });
+
+    expect(result.openInAppBrowser).toBe(false);
   });
 
   it("routes OAuth to in-app browser for native in-app contexts", () => {

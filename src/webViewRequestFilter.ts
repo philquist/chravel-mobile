@@ -76,16 +76,24 @@ export function evaluateWebViewRequestPolicy({
   }
 
   try {
-    const host = new URL(url).hostname;
-    if (ALLOWED_HOSTS.some((h) => host.endsWith(h))) {
+    const parsed = new URL(url);
+    if (ALLOWED_HOSTS.some((h) => parsed.hostname.endsWith(h))) {
       return { allowInWebView: true };
     }
+
+    // Default for unhandled URLs: open externally. On native, http(s) links go
+    // through an in-app browser sheet (SFSafariViewController / Custom Tabs) so
+    // the user stays inside Chravel. Non-web schemes (mailto:, tel:, sms:, etc.)
+    // and the web platform keep the Linking.openURL fallback because there is no
+    // in-app browser equivalent for them.
+    const isWebUrl = parsed.protocol === "http:" || parsed.protocol === "https:";
+    const isNativePlatform = platformOS === "ios" || platformOS === "android";
+    return {
+      allowInWebView: false,
+      externalUrlToOpen: url,
+      openInAppBrowser: isWebUrl && isNativePlatform,
+    };
   } catch {
     return { allowInWebView: false };
   }
-
-  return {
-    allowInWebView: false,
-    externalUrlToOpen: url,
-  };
 }
