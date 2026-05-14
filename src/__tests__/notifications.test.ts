@@ -26,7 +26,7 @@ describe("parseNotificationPayload", () => {
   });
 
   it("parses all valid push types", () => {
-    const types = ["chat_message", "trip_update", "poll_update", "task_update", "calendar_event", "broadcast"];
+    const types = ["chat_message", "chat", "trip_update", "poll_update", "task_update", "calendar_event", "broadcast", "broadcast_pinned"];
     for (const type of types) {
       const result = parseNotificationPayload({ type, tripId: "trip-1" });
       expect(result).not.toBeNull();
@@ -66,6 +66,10 @@ describe("getNotificationDeepLink", () => {
     );
   });
 
+  it("returns chat path for chat alias", () => {
+    expect(getNotificationDeepLink({ type: "chat", tripId: "t1" })).toBe("/trip/t1?tab=chat");
+  });
+
   it("returns calendar path for calendar_event", () => {
     expect(getNotificationDeepLink({ type: "calendar_event", tripId: "t1" })).toBe("/trip/t1?tab=calendar");
   });
@@ -90,6 +94,10 @@ describe("getNotificationDeepLink", () => {
 
   it("returns chat path for broadcast", () => {
     expect(getNotificationDeepLink({ type: "broadcast", tripId: "t1" })).toBe("/trip/t1?tab=chat");
+  });
+
+  it("returns chat path for broadcast_pinned", () => {
+    expect(getNotificationDeepLink({ type: "broadcast_pinned", tripId: "t1" })).toBe("/trip/t1?tab=chat");
   });
 
   it("returns trip path for trip_update", () => {

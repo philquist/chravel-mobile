@@ -23,11 +23,13 @@ export const ENTITLEMENTS = {
 // Push notification payload types the backend sends.
 export const PUSH_TYPES = [
   "chat_message",
+  "chat",
   "trip_update",
   "poll_update",
   "task_update",
   "calendar_event",
   "broadcast",
+  "broadcast_pinned",
 ] as const;
 
 export type PushType = (typeof PUSH_TYPES)[number];
