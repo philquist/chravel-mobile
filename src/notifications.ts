@@ -3,6 +3,31 @@ import * as Device from "expo-device";
 import { Platform } from "react-native";
 import { PUSH_TYPES, type PushType, COLORS } from "./constants";
 
+async function ensureAndroidNotificationChannels(): Promise<void> {
+  if (Platform.OS !== "android") return;
+
+  await Promise.all([
+    Notifications.setNotificationChannelAsync("default", {
+      name: "General",
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: COLORS.brandBlue,
+    }),
+    Notifications.setNotificationChannelAsync("chat-messages", {
+      name: "Chat messages",
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 150, 100, 150],
+      lightColor: "#2ECC71",
+    }),
+    Notifications.setNotificationChannelAsync("important-updates", {
+      name: "Broadcast & pinned",
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 300, 180, 300],
+      lightColor: "#F59E0B",
+    }),
+  ]);
+}
+
 // Configure how notifications appear when the app is foregrounded.
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -41,15 +66,7 @@ export async function registerForPushNotifications(): Promise<PushTokenResult> {
     return { token: null, error: "Permission not granted" };
   }
 
-  // Android requires a notification channel.
-  if (Platform.OS === "android") {
-    await Notifications.setNotificationChannelAsync("default", {
-      name: "Default",
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: COLORS.brandBlue,
-    });
-  }
+  await ensureAndroidNotificationChannels();
 
   try {
     // Get the native device token (APNs on iOS, FCM on Android).
@@ -98,6 +115,7 @@ export function getNotificationDeepLink(
 
   switch (type) {
     case "chat_message":
+    case "chat":
       return threadId
         ? `/trip/${tripId}?tab=chat&thread=${threadId}`
         : `/trip/${tripId}?tab=chat`;
@@ -114,6 +132,7 @@ export function getNotificationDeepLink(
         ? `/trip/${tripId}?tab=chat&task=${taskId}`
         : `/trip/${tripId}?tab=chat`;
     case "broadcast":
+    case "broadcast_pinned":
       return `/trip/${tripId}?tab=chat`;
     case "trip_update":
     default:
