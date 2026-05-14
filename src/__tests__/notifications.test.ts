@@ -96,6 +96,27 @@ describe("getNotificationDeepLink", () => {
     expect(getNotificationDeepLink({ type: "trip_update", tripId: "t1" })).toBe("/trip/t1");
   });
 
+
+
+  it("accepts APNs-style kebab-case keys for route IDs", () => {
+    expect(getNotificationDeepLink({ type: "chat_message", tripId: "t1", "thread-id": "th-kebab" })).toBe(
+      "/trip/t1?tab=chat&thread=th-kebab"
+    );
+    expect(getNotificationDeepLink({ type: "task_update", tripId: "t1", task_id: "task-snake" })).toBe(
+      "/trip/t1?tab=chat&task=task-snake"
+    );
+  });
+
+  it("prefers canonical camelCase keys when duplicates exist", () => {
+    expect(
+      getNotificationDeepLink({
+        type: "chat_message",
+        tripId: "t1",
+        threadId: "thread-camel",
+        "thread-id": "thread-kebab",
+      })
+    ).toBe("/trip/t1?tab=chat&thread=thread-camel");
+  });
   it("returns null for invalid payload", () => {
     expect(getNotificationDeepLink({ foo: "bar" })).toBeNull();
   });
