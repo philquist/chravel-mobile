@@ -43,14 +43,33 @@ function isAllowedChravelWebOrigin(url: string): boolean {
  * redirect back to chravel://auth-callback. Used both for WebView-initiated
  * navigations and for explicit `Capacitor.Plugins.Browser.open`/
  * `ChravelNative.openOAuthUrl` calls from the web app.
+ *
+ * Uses strict URL parsing rather than substring matching so URLs like
+ * `https://evil.com/?accounts.google.com=true` or
+ * `https://accounts.google.com.evil.com/` do not get routed through the
+ * auth session with our chravel://auth-callback redirect.
  */
 export function isOAuthAuthorizeUrl(url: string): boolean {
-  return (
-    url.includes("accounts.google.com") ||
-    url.includes("appleid.apple.com") ||
-    (url.includes("supabase.co") &&
-      (url.includes("provider=google") || url.includes("provider=apple")))
-  );
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") return false;
+    const host = parsed.hostname;
+
+    if (host === "accounts.google.com") return true;
+    if (host === "appleid.apple.com") return true;
+
+    if (
+      host.endsWith(".supabase.co") &&
+      parsed.pathname === "/auth/v1/authorize"
+    ) {
+      const provider = parsed.searchParams.get("provider");
+      if (provider === "google" || provider === "apple") return true;
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
 }
 
 export function evaluateWebViewRequestPolicy({

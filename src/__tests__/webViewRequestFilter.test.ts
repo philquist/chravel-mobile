@@ -159,4 +159,82 @@ describe("isOAuthAuthorizeUrl", () => {
       false,
     );
   });
+
+  it("rejects substring spoofing of the Google hostname", () => {
+    expect(
+      isOAuthAuthorizeUrl("https://evil.com/?accounts.google.com=true"),
+    ).toBe(false);
+    expect(isOAuthAuthorizeUrl("https://accounts.google.com.evil.com/")).toBe(
+      false,
+    );
+  });
+
+  it("rejects substring spoofing of the Apple hostname", () => {
+    expect(
+      isOAuthAuthorizeUrl("https://evil.com/?next=appleid.apple.com"),
+    ).toBe(false);
+    expect(isOAuthAuthorizeUrl("https://appleid.apple.com.evil.com/")).toBe(
+      false,
+    );
+  });
+
+  it("rejects non-https schemes even on legitimate hostnames", () => {
+    expect(
+      isOAuthAuthorizeUrl("http://accounts.google.com/o/oauth2/v2/auth"),
+    ).toBe(false);
+    expect(
+      isOAuthAuthorizeUrl(
+        "http://abc.supabase.co/auth/v1/authorize?provider=google",
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects bare supabase.co apex without a project subdomain", () => {
+    expect(
+      isOAuthAuthorizeUrl("https://supabase.co/auth/v1/authorize?provider=google"),
+    ).toBe(false);
+  });
+
+  it("rejects Supabase look-alike hosts that merely contain the substring", () => {
+    expect(
+      isOAuthAuthorizeUrl(
+        "https://evilsupabase.co/auth/v1/authorize?provider=google",
+      ),
+    ).toBe(false);
+    expect(
+      isOAuthAuthorizeUrl(
+        "https://abc.supabase.co.evil.com/auth/v1/authorize?provider=google",
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects Supabase URLs on the wrong path", () => {
+    expect(
+      isOAuthAuthorizeUrl(
+        "https://abc.supabase.co/something-else?provider=google",
+      ),
+    ).toBe(false);
+    expect(
+      isOAuthAuthorizeUrl(
+        "https://abc.supabase.co/auth/v1/token?provider=google",
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects Supabase URLs with unsupported providers or no provider", () => {
+    expect(
+      isOAuthAuthorizeUrl(
+        "https://abc.supabase.co/auth/v1/authorize?provider=github",
+      ),
+    ).toBe(false);
+    expect(
+      isOAuthAuthorizeUrl("https://abc.supabase.co/auth/v1/authorize"),
+    ).toBe(false);
+  });
+
+  it("returns false (does not throw) for malformed input", () => {
+    expect(isOAuthAuthorizeUrl("")).toBe(false);
+    expect(isOAuthAuthorizeUrl("not a url")).toBe(false);
+    expect(isOAuthAuthorizeUrl("//accounts.google.com/oauth")).toBe(false);
+  });
 });
