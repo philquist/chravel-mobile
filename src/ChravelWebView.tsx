@@ -27,6 +27,7 @@ import {
   onDeepLink,
   parseDeepLinkUrl,
   isAuthScreenUrl,
+  isNativeAuthReturnPath,
   NATIVE_OAUTH_CALLBACK_URL,
   rewriteOAuthUrlForNativeCallback,
 } from "./deepLinking";
@@ -102,7 +103,7 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
   /** Apply a deep-link path (OAuth callback vs in-app route). Used for live links and deferred cold-start / notification paths. */
   const handleIncomingPath = useCallback(
     (path: string) => {
-      if (path.startsWith("/auth-callback")) {
+      if (isNativeAuthReturnPath(path)) {
         isAuthRedirectRef.current = true;
         clearLoadingFallbackTimer();
         setIsLoading(true);
@@ -209,7 +210,7 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
           const result = await WebBrowser.openAuthSessionAsync(nativeAuthUrl, NATIVE_OAUTH_CALLBACK_URL);
           if (result.type === "success" && result.url) {
             const nextPath = parseDeepLinkUrl(result.url);
-            if (nextPath?.startsWith("/auth-callback")) {
+            if (nextPath && isNativeAuthReturnPath(nextPath)) {
               handleIncomingPath(nextPath);
             }
           }
@@ -325,7 +326,7 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
             ).then((result) => {
               if (result.type === "success" && result.url) {
                 const nextPath = parseDeepLinkUrl(result.url);
-                if (nextPath?.startsWith("/auth-callback")) {
+                if (nextPath && isNativeAuthReturnPath(nextPath)) {
                   handleIncomingPath(nextPath);
                 }
               }
