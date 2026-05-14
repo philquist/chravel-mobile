@@ -102,6 +102,36 @@ Any changes here **must** be coordinated with the web app in `ChravelApp`.
 | `chravel:voice-playback-complete` | — | Queue drained |
 | `chravel:voice-playback-flushed` | — | Barge-in complete |
 | `chravel:voice-error` | `error, code` | Audio pipeline error |
+| `chravel:notification-action` | `action, userText?, type?, tripId?, threadId?` | iOS quick-action tapped on a push (REPLY / MARK_READ). Inline actions do NOT deep-link nav — the web app updates state in place. |
+
+### APNs / FCM payload contract
+
+The backend (in `Chravel-Inc/ChravelApp`) generates these payloads from Supabase notification rows. Categories and channel IDs are registered by the native shell on first launch (`src/notifications.ts`).
+
+**iOS (APNs):**
+```
+aps: {
+  alert: { title, body, subtitle? },          // subtitle = chat thread name for chat_message
+  category: "CHAT_MESSAGE" | "BROADCAST" | "BROADCAST_PINNED",
+  thread-id: "<tripId>" for broadcasts, "<threadId>" for chats,  // iOS uses this for grouping
+  sound: "default",
+  badge: <n>,
+  mutable-content: 1                          // allow Notification Service Extension to mutate
+}
+data: { type, tripId, threadId?, eventId?, pollId?, taskId? }
+```
+
+**Android (FCM):**
+```
+data: { type, tripId, threadId?, eventId?, pollId?, taskId? }
+notification: {
+  title,
+  body,
+  channel_id: getChannelForPushType(type)     // "chat-messages" | "important-updates" | "default"
+}
+```
+
+`getChannelForPushType` is exported from `src/notifications.ts` and is the single source of truth for the channel mapping.
 
 ### Injected globals
 

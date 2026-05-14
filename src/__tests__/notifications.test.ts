@@ -1,8 +1,18 @@
+const platformMock = { OS: "ios" as "ios" | "android" };
+
 jest.mock("react-native", () => ({
-  Platform: { OS: "ios" },
+  get Platform() {
+    return platformMock;
+  },
 }));
 
-import { parseNotificationPayload, getNotificationDeepLink } from "../notifications";
+import {
+  parseNotificationPayload,
+  getNotificationDeepLink,
+  getChannelForPushType,
+  IOS_NOTIFICATION_CATEGORIES,
+  registerForPushNotifications,
+} from "../notifications";
 
 jest.mock("expo-notifications", () => ({
   setNotificationHandler: jest.fn(),
@@ -10,6 +20,7 @@ jest.mock("expo-notifications", () => ({
   requestPermissionsAsync: jest.fn(),
   getDevicePushTokenAsync: jest.fn(),
   setNotificationChannelAsync: jest.fn(),
+  setNotificationCategoryAsync: jest.fn(),
   AndroidImportance: { MAX: 5 },
   addNotificationResponseReceivedListener: jest.fn(),
 }));
@@ -17,6 +28,8 @@ jest.mock("expo-notifications", () => ({
 jest.mock("expo-device", () => ({
   isDevice: true,
 }));
+
+import * as Notifications from "expo-notifications";
 
 describe("parseNotificationPayload", () => {
   it("parses a valid chat_message payload", () => {
@@ -127,5 +140,91 @@ describe("getNotificationDeepLink", () => {
   });
   it("returns null for invalid payload", () => {
     expect(getNotificationDeepLink({ foo: "bar" })).toBeNull();
+  });
+});
+
+describe("getChannelForPushType", () => {
+  it("routes chat_message and chat to chat-messages", () => {
+    expect(getChannelForPushType("chat_message")).toBe("chat-messages");
+    expect(getChannelForPushType("chat")).toBe("chat-messages");
+  });
+
+  it("routes broadcasts to important-updates", () => {
+    expect(getChannelForPushType("broadcast")).toBe("important-updates");
+    expect(getChannelForPushType("broadcast_pinned")).toBe("important-updates");
+  });
+
+  it("routes other typed pushes to default", () => {
+    expect(getChannelForPushType("trip_update")).toBe("default");
+    expect(getChannelForPushType("poll_update")).toBe("default");
+    expect(getChannelForPushType("task_update")).toBe("default");
+    expect(getChannelForPushType("calendar_event")).toBe("default");
+  });
+
+  it("falls back to default for unknown types", () => {
+    expect(getChannelForPushType("unknown")).toBe("default");
+    expect(getChannelForPushType("")).toBe("default");
+  });
+});
+
+describe("registerForPushNotifications platform setup", () => {
+  const mockGetPermissions = Notifications.getPermissionsAsync as jest.Mock;
+  const mockGetToken = Notifications.getDevicePushTokenAsync as jest.Mock;
+  const mockSetCategory = Notifications.setNotificationCategoryAsync as jest.Mock;
+  const mockSetChannel = Notifications.setNotificationChannelAsync as jest.Mock;
+
+  beforeEach(() => {
+    mockGetPermissions.mockReset();
+    mockGetToken.mockReset();
+    mockSetCategory.mockReset();
+    mockSetChannel.mockReset();
+    mockGetPermissions.mockResolvedValue({ status: "granted" });
+    mockGetToken.mockResolvedValue({ data: "test-token" });
+    mockSetCategory.mockResolvedValue(undefined);
+    mockSetChannel.mockResolvedValue(undefined);
+  });
+
+  it("registers all three iOS categories when running on iOS", async () => {
+    platformMock.OS = "ios";
+    const result = await registerForPushNotifications();
+    expect(result.token).toBe("test-token");
+
+    const identifiers = mockSetCategory.mock.calls.map((call) => call[0]);
+    expect(identifiers).toEqual(
+      expect.arrayContaining([
+        IOS_NOTIFICATION_CATEGORIES.CHAT_MESSAGE,
+        IOS_NOTIFICATION_CATEGORIES.BROADCAST,
+        IOS_NOTIFICATION_CATEGORIES.BROADCAST_PINNED,
+      ]),
+    );
+    expect(identifiers).toHaveLength(3);
+    // iOS path must NOT create Android channels.
+    expect(mockSetChannel).not.toHaveBeenCalled();
+  });
+
+  it("CHAT_MESSAGE category exposes REPLY (text input) and MARK_READ actions", async () => {
+    platformMock.OS = "ios";
+    await registerForPushNotifications();
+    const chatCall = mockSetCategory.mock.calls.find(
+      (call) => call[0] === IOS_NOTIFICATION_CATEGORIES.CHAT_MESSAGE,
+    );
+    expect(chatCall).toBeDefined();
+    const actions = chatCall![1] as Array<{ identifier: string; textInput?: unknown }>;
+    const reply = actions.find((a) => a.identifier === "REPLY");
+    const markRead = actions.find((a) => a.identifier === "MARK_READ");
+    expect(reply).toBeDefined();
+    expect(reply!.textInput).toBeDefined();
+    expect(markRead).toBeDefined();
+  });
+
+  it("does NOT register iOS categories when running on Android", async () => {
+    platformMock.OS = "android";
+    await registerForPushNotifications();
+    expect(mockSetCategory).not.toHaveBeenCalled();
+    // Android path creates the three notification channels instead.
+    const channelIds = mockSetChannel.mock.calls.map((call) => call[0]);
+    expect(channelIds).toEqual(
+      expect.arrayContaining(["default", "chat-messages", "important-updates"]),
+    );
   });
 });
