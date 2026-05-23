@@ -49,6 +49,13 @@ function isAllowedChravelWebOrigin(url: string): boolean {
  * `https://accounts.google.com.evil.com/` do not get routed through the
  * auth session with our chravel://auth-callback redirect.
  */
+function normalizeUrlPathname(pathname: string): string {
+  // WHATWG URLs preserve trailing slashes (e.g. /auth/v1/authorize/ vs /auth/v1/authorize).
+  // Supabase and some proxies emit a trailing slash; strict equality would skip OAuth routing.
+  if (pathname.length <= 1) return pathname;
+  return pathname.replace(/\/+$/, "");
+}
+
 export function isOAuthAuthorizeUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
@@ -60,7 +67,7 @@ export function isOAuthAuthorizeUrl(url: string): boolean {
 
     if (
       host.endsWith(".supabase.co") &&
-      parsed.pathname === "/auth/v1/authorize"
+      normalizeUrlPathname(parsed.pathname) === "/auth/v1/authorize"
     ) {
       const provider = parsed.searchParams.get("provider");
       if (provider === "google" || provider === "apple") return true;

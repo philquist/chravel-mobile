@@ -102,6 +102,20 @@ describe("evaluateWebViewRequestPolicy", () => {
     expect(result.openInAppBrowser).toBe(true);
   });
 
+  it("routes Supabase OAuth with trailing slash on authorize path through auth session", () => {
+    const oauthUrl =
+      "https://abc.supabase.co/auth/v1/authorize/?provider=google&redirect_to=https%3A%2F%2Fchravel.app%2Fauth-callback";
+
+    const result = evaluateWebViewRequestPolicy({
+      url: oauthUrl,
+      platformOS: "ios",
+      isTopFrame: true,
+    });
+
+    expect(result.allowInWebView).toBe(false);
+    expect(result.useAuthSession).toBe(true);
+  });
+
   it("uses external open for non-native OAuth path", () => {
     const oauthUrl =
       "https://abc.supabase.co/auth/v1/authorize?provider=google&redirect_to=https%3A%2F%2Fchravel.app%2Fauth-callback";
@@ -142,6 +156,14 @@ describe("isOAuthAuthorizeUrl", () => {
     expect(
       isOAuthAuthorizeUrl(
         "https://abc.supabase.co/auth/v1/authorize?provider=apple",
+      ),
+    ).toBe(true);
+  });
+
+  it("recognizes Supabase authorize URLs with a trailing slash before the query", () => {
+    expect(
+      isOAuthAuthorizeUrl(
+        "https://abc.supabase.co/auth/v1/authorize/?provider=google&redirect_to=https%3A%2F%2Fchravel.app%2Fauth-callback",
       ),
     ).toBe(true);
   });
