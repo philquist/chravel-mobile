@@ -9,6 +9,12 @@ const ALLOWED_HOSTS = [
   "maps.google.com",
 ];
 
+/** Exact host or a subdomain of `allowedHost` (rejects look-alikes like evilsupabase.co). */
+function hostnameMatchesAllowedHost(hostname: string, allowedHost: string): boolean {
+  if (hostname === allowedHost) return true;
+  return hostname.endsWith(`.${allowedHost}`);
+}
+
 export interface RequestPolicyInput {
   url: string;
   isTopFrame?: boolean;
@@ -103,7 +109,9 @@ export function evaluateWebViewRequestPolicy({
 
   try {
     const parsed = new URL(url);
-    if (ALLOWED_HOSTS.some((h) => parsed.hostname.endsWith(h))) {
+    if (
+      ALLOWED_HOSTS.some((h) => hostnameMatchesAllowedHost(parsed.hostname, h))
+    ) {
       return { allowInWebView: true };
     }
 
