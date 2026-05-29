@@ -87,6 +87,29 @@ describe("evaluateWebViewRequestPolicy", () => {
     expect(result.openInAppBrowser).toBe(false);
   });
 
+  it("does not allow look-alike hosts that merely end with an allowed suffix", () => {
+    const malicious = "https://evilsupabase.co/rest/v1/foo";
+    const result = evaluateWebViewRequestPolicy({
+      url: malicious,
+      platformOS: "ios",
+      isTopFrame: true,
+    });
+
+    expect(result.allowInWebView).toBe(false);
+    expect(result.externalUrlToOpen).toBe(malicious);
+    expect(result.openInAppBrowser).toBe(true);
+  });
+
+  it("allows legitimate subdomains of allowlisted third-party hosts", () => {
+    const result = evaluateWebViewRequestPolicy({
+      url: "https://abc.supabase.co/rest/v1/foo",
+      platformOS: "ios",
+      isTopFrame: true,
+    });
+
+    expect(result.allowInWebView).toBe(true);
+  });
+
   it("routes OAuth to in-app browser for native in-app contexts", () => {
     const oauthUrl =
       "https://abc.supabase.co/auth/v1/authorize?provider=google&redirect_to=https%3A%2F%2Fchravel.app%2Fauth-callback";
