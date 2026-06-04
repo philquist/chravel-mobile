@@ -18,7 +18,6 @@ This is the **native mobile shell only** — an Expo/React Native app (~1,500 li
 │         postMessage ↕ injectJavaScript           │
 │  ┌──────────────────┴─────────────────────────┐ │
 │  │  Native Modules                            │ │
-│  │  ├─ Biometrics (Face ID / Touch ID)        │ │
 │  │  ├─ Push Notifications (APNs / FCM)        │ │
 │  │  ├─ RevenueCat (in-app subscriptions)      │ │
 │  │  ├─ Voice Audio (capture + playback)       │ │
