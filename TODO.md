@@ -56,6 +56,18 @@
 - [ ] Apple OAuth secret key expires every 6 months — regenerate before expiry (generated 2026-03-26)
 - [ ] Test Apple Sign In on mobile app
 
+### Apple token revocation on account deletion (App Store 5.1.1(v))
+Backend lives in the shared "Chravel" Supabase project (`jmjiyekmxwsxkfnqwyaa`) / ChravelApp.
+Canonical source committed here: `coordination/chravel-web/` (sync into ChravelApp to avoid drift).
+- [x] `apple_auth_tokens` table (service-role-only RLS, encrypted token) — migration applied (2026-06-04)
+- [x] `store-apple-token` edge function deployed — captures `provider_refresh_token` at Apple sign-in
+- [x] `process-account-deletions` + `delete-account` revoke via `appleid.apple.com/auth/revoke` before deleting `auth.users` (2026-06-04)
+- [ ] **Set edge-function secrets** (Dashboard → Edge Functions → Secrets; .p8 NEVER committed):
+      `APPLE_P8_PRIVATE_KEY`, `APPLE_KEY_ID`, `APPLE_TEAM_ID=2T6WY43H3X`,
+      `APPLE_CLIENT_ID=com.chravel.app`, `APPLE_TOKEN_ENCRYPTION_KEY` (base64 of 32 bytes)
+- [ ] **chravel-web**: wire `coordination/chravel-web/web/store-apple-token.snippet.ts` into the web auth bootstrap and deploy (until then, no tokens are captured)
+- [ ] Sandbox verification — sign in → delete → confirm app removed from Settings → Apple ID → Sign in with Apple; re-sign-in creates a fresh grant (see `coordination/chravel-web/README.md`)
+
 ## Infrastructure
 - [ ] Set up staging environment for chravel.app (separate Vercel deploy)
 - [ ] ~120 stale Codex branches on GitHub need cleanup
