@@ -12,6 +12,7 @@ import {
   getChannelForPushType,
   IOS_NOTIFICATION_CATEGORIES,
   registerForPushNotifications,
+  clearNotificationBadge,
 } from "../notifications";
 
 jest.mock("expo-notifications", () => ({
@@ -21,6 +22,8 @@ jest.mock("expo-notifications", () => ({
   getDevicePushTokenAsync: jest.fn(),
   setNotificationChannelAsync: jest.fn(),
   setNotificationCategoryAsync: jest.fn(),
+  setBadgeCountAsync: jest.fn(),
+  dismissAllNotificationsAsync: jest.fn(),
   AndroidImportance: { MAX: 5 },
   addNotificationResponseReceivedListener: jest.fn(),
 }));
@@ -226,5 +229,49 @@ describe("registerForPushNotifications platform setup", () => {
     expect(channelIds).toEqual(
       expect.arrayContaining(["default", "chat-messages", "important-updates"]),
     );
+  });
+
+  it("does not prompt when promptIfNeeded is false and permission is undetermined", async () => {
+    platformMock.OS = "ios";
+    mockGetPermissions.mockResolvedValue({ status: "undetermined" });
+    const mockRequest = Notifications.requestPermissionsAsync as jest.Mock;
+
+    const result = await registerForPushNotifications({ promptIfNeeded: false });
+
+    expect(result.token).toBeNull();
+    expect(mockRequest).not.toHaveBeenCalled();
+    expect(mockGetToken).not.toHaveBeenCalled();
+  });
+
+  it("still returns the token without prompting when already granted", async () => {
+    platformMock.OS = "ios";
+    mockGetPermissions.mockResolvedValue({ status: "granted" });
+    const mockRequest = Notifications.requestPermissionsAsync as jest.Mock;
+
+    const result = await registerForPushNotifications({ promptIfNeeded: false });
+
+    expect(result.token).toBe("test-token");
+    expect(mockRequest).not.toHaveBeenCalled();
+  });
+});
+
+describe("clearNotificationBadge", () => {
+  const mockSetBadge = Notifications.setBadgeCountAsync as jest.Mock;
+  const mockDismissAll = Notifications.dismissAllNotificationsAsync as jest.Mock;
+
+  beforeEach(() => {
+    mockSetBadge.mockReset().mockResolvedValue(true);
+    mockDismissAll.mockReset().mockResolvedValue(undefined);
+  });
+
+  it("resets the badge count and dismisses delivered notifications", async () => {
+    await clearNotificationBadge();
+    expect(mockSetBadge).toHaveBeenCalledWith(0);
+    expect(mockDismissAll).toHaveBeenCalled();
+  });
+
+  it("swallows errors from the badge APIs", async () => {
+    mockSetBadge.mockRejectedValue(new Error("unsupported"));
+    await expect(clearNotificationBadge()).resolves.toBeUndefined();
   });
 });
