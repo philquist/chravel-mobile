@@ -106,12 +106,26 @@ export interface PushTokenResult {
   error?: string;
 }
 
+export interface RegisterPushOptions {
+  /**
+   * When false, never shows the OS permission prompt — only returns a token
+   * if permission was already granted. Used for the proactive on-launch
+   * registration so we don't prompt before the PushPrePrompt screen does.
+   * Defaults to true (web-driven `push:register` may prompt).
+   */
+  promptIfNeeded?: boolean;
+}
+
 /**
  * Register for push notifications. Returns the native APNs/FCM token
  * (not the Expo push token) since the Chravel backend sends pushes
- * directly via APNs/FCM.
+ * directly via APNs (iOS) / FCM (Android).
  */
-export async function registerForPushNotifications(): Promise<PushTokenResult> {
+export async function registerForPushNotifications(
+  options: RegisterPushOptions = {},
+): Promise<PushTokenResult> {
+  const { promptIfNeeded = true } = options;
+
   if (!Device.isDevice) {
     return { token: null, error: "Push notifications require a physical device" };
   }
@@ -120,6 +134,9 @@ export async function registerForPushNotifications(): Promise<PushTokenResult> {
   let finalStatus = existing;
 
   if (existing !== "granted") {
+    if (!promptIfNeeded) {
+      return { token: null, error: "Permission not granted" };
+    }
     const { status } = await Notifications.requestPermissionsAsync();
     finalStatus = status;
   }
@@ -142,6 +159,20 @@ export async function registerForPushNotifications(): Promise<PushTokenResult> {
       token: null,
       error: err instanceof Error ? err.message : "Failed to get push token",
     };
+  }
+}
+
+/**
+ * Clear the app-icon badge and dismiss any delivered notifications.
+ * Called when the app returns to the foreground so the badge count
+ * (set from `aps.badge`) doesn't linger after the user has seen things.
+ */
+export async function clearNotificationBadge(): Promise<void> {
+  try {
+    await Notifications.setBadgeCountAsync(0);
+    await Notifications.dismissAllNotificationsAsync();
+  } catch {
+    // Badge/notification APIs can throw on unsupported platforms — ignore.
   }
 }
 

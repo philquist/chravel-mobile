@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   Platform,
   StyleSheet,
   View,
@@ -18,6 +19,7 @@ import { buildInjectedJS, buildWebEvent, parseBridgeMessage } from "./bridge";
 import {
   registerForPushNotifications,
   getNotificationDeepLink,
+  clearNotificationBadge,
 } from "./notifications";
 import { triggerHaptic } from "./haptics";
 import {
@@ -58,6 +60,7 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
   const currentUrlRef = useRef(buildNativeAuthLaunchUrl());
   const isAuthRedirectRef = useRef(false); // true after OAuth deep link
   const voiceBridgeRef = useRef(new VoiceBridge());
+  const didProactiveRegisterRef = useRef(false); // proactive push register runs once per launch
   const isReadyRef = useRef(false);
   const initialUrlRef = useRef<string | null>(null);
   const loadingHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -212,6 +215,37 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
     return () => subscription.remove();
   }, [handleIncomingPath]);
 
+  // ── App-icon badge clearing ─────────────────────────────────
+  // The backend sets aps.badge on iOS pushes. Clear the badge (and dismiss
+  // delivered notifications) whenever the app comes to the foreground, plus
+  // once on mount for the cold-start case (where AppState is already active).
+  useEffect(() => {
+    void clearNotificationBadge();
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        void clearNotificationBadge();
+      }
+    });
+    return () => subscription.remove();
+  }, []);
+
+  // ── Push token forwarding ───────────────────────────────────
+  // The native shell only obtains the device token (APNs on iOS, FCM on
+  // Android); the web app owns the push_device_tokens upsert, so it needs the
+  // platform alongside the token.
+  const emitPushToken = useCallback(
+    (result: { token: string | null; error?: string }) => {
+      webViewRef.current?.injectJavaScript(
+        buildWebEvent("chravel:push-token", {
+          token: result.token,
+          platform: Platform.OS,
+          error: result.error ?? null,
+        }),
+      );
+    },
+    [],
+  );
+
   // ── Bridge message handler ──────────────────────────────────
 
   const handleMessage = useCallback(async (event: WebViewMessageEvent) => {
@@ -238,6 +272,19 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
         if (decision.applyPathNow) {
           initialUrlRef.current = null;
           handleIncomingPath(decision.applyPathNow);
+        }
+
+        // Proactively forward the push token on launch if permission was
+        // already granted (returning users), without prompting — the
+        // PushPrePrompt / web-driven push:register handles first-time prompts.
+        // The web app upserts push_device_tokens once it receives the token.
+        if (!didProactiveRegisterRef.current) {
+          didProactiveRegisterRef.current = true;
+          void registerForPushNotifications({ promptIfNeeded: false }).then(
+            (result) => {
+              if (result.token) emitPushToken(result);
+            },
+          );
         }
         break;
       }
@@ -270,12 +317,7 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
 
       case "push:register": {
         const result = await registerForPushNotifications();
-        webViewRef.current?.injectJavaScript(
-          buildWebEvent("chravel:push-token", {
-            token: result.token,
-            error: result.error ?? null,
-          }),
-        );
+        emitPushToken(result);
         break;
       }
 
@@ -355,7 +397,7 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
         break;
       }
     }
-  }, [handleIncomingPath, clearLoadingFallbackTimer, scheduleLoadingFallback, openOAuthAuthSession]);
+  }, [handleIncomingPath, clearLoadingFallbackTimer, scheduleLoadingFallback, openOAuthAuthSession, emitPushToken]);
 
   // ── URL filter ──────────────────────────────────────────────
 

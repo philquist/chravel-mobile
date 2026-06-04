@@ -89,7 +89,7 @@ Any changes here **must** be coordinated with the web app in `ChravelApp`.
 | Event name | Detail | Purpose |
 |---|---|---|
 | `chravel:native-ready` | — | Native shell initialized |
-| `chravel:push-token` | `token, error?` | Push token result |
+| `chravel:push-token` | `token, platform, error?` | Push token result (`platform`: `ios`\|`android`; iOS token is APNs, Android is FCM). Emitted on web-driven `push:register` **and** proactively on launch if permission is already granted. The web app owns the `push_device_tokens` upsert (`platform`, `disabled_at: null`). |
 | `chravel:push-unregistered` | `success` | Unregistration ack |
 | `chravel:purchase-result` | `success, error?` | Purchase outcome |
 | `chravel:restore-result` | `success, error?` | Restore outcome |
