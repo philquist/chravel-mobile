@@ -13,7 +13,6 @@
   "dependencies": {
     "@mykin-ai/expo-audio-stream": "^0.3.5",
     "@react-native-async-storage/async-storage": "2.2.0",
-    "@react-native-masked-view/masked-view": "^0.3.2",
     "expo": "~55.0.8",
     "expo-application": "^55.0.10",
     "expo-asset": "^55.0.10",
@@ -22,7 +21,6 @@
     "expo-device": "^55.0.10",
     "expo-file-system": "^55.0.12",
     "expo-haptics": "^55.0.9",
-    "expo-linear-gradient": "~55.0.9",
     "expo-linking": "^55.0.8",
     "expo-notifications": "^55.0.13",
     "expo-splash-screen": "^55.0.12",
@@ -32,7 +30,6 @@
     "react-native": "0.83.2",
     "react-native-purchases": "^9.14.0",
     "react-native-safe-area-context": "^5.7.0",
-    "react-native-screens": "^4.24.0",
     "react-native-webview": "^13.16.1"
   },
   "devDependencies": {
