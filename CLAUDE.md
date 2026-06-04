@@ -205,6 +205,7 @@ Push to `main` → GitHub Actions → tests → EAS Build (iOS + Android) → au
 ## Security notes
 
 - **Apple OAuth secret expires ~September 2026** (generated 2026-03-26, 6-month lifespan) — see `TODO.md`
+- **Apple token revocation on account deletion (App Store 5.1.1(v))** — Apple sign-in runs through Supabase WebView OAuth (no native ASAuthorization). The Apple refresh token is captured server-side from `session.provider_refresh_token` (`store-apple-token` edge function), stored encrypted in the `apple_auth_tokens` table (service-role-only), and revoked via `appleid.apple.com/auth/revoke` by both `process-account-deletions` and `delete-account` before `auth.users` is deleted. Backend canonical source: `coordination/chravel-web/` (sync into ChravelApp). Requires edge secrets `APPLE_P8_PRIVATE_KEY` / `APPLE_KEY_ID` / `APPLE_TEAM_ID` / `APPLE_CLIENT_ID` / `APPLE_TOKEN_ENCRYPTION_KEY` — **the .p8 must never be committed.**
 - **Demo credentials** in `REVIEW_NOTES.md` — `demo@chravel.app` for App Store review. Rotate after review.
 - **Google Maps API key exposed in old repo git history** — `TODO.md` says it needs rotation
 - **Ensure `Chravel-Inc/ChravelApp` has no secrets in git history** — flagged in `TODO.md`
