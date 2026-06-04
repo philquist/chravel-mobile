@@ -36,17 +36,18 @@ This is the **native mobile shell only** — an Expo/React Native app (~1,500 li
 
 | File | Role |
 |---|---|
-| `App.tsx` | Root component — biometric lock, terms, push prompt, error state |
+| `App.tsx` | Root component — terms, push prompt, error/splash state |
 | `src/ChravelWebView.tsx` | **Core** — WebView config, bridge handler, OAuth interception, deep links |
 | `src/bridge.ts` | **Core** — bridge protocol types and message building |
 | `src/voiceBridge.ts` | Voice audio orchestrator (capture + playback ↔ WebView) |
 | `src/revenuecat.ts` | RevenueCat SDK: configure, identify, purchase, restore |
 | `src/notifications.ts` | Push notification registration + deep link routing |
 | `src/deepLinking.ts` | URL parsing for `chravel://` and `https://chravel.app` |
-| `src/biometrics.ts` | Face ID / Touch ID detection and authentication |
+| `src/webViewRequestFilter.ts` | WebView navigation allowlist + OAuth-authorize URL detection |
+| `src/authUrl.ts` | Sign-in route detection (distinguishes `/auth` from substring look-alikes) |
+| `src/authRouting.ts` | Ready-state routing for OAuth callbacks + deferred paths; auth-surface mapping |
 | `src/haptics.ts` | Haptic feedback trigger |
 | `src/constants.ts` | URLs, entitlement IDs, push types |
-| `src/LockScreen.tsx` | Biometric lock UI |
 | `src/ErrorScreen.tsx` | Network error UI with retry |
 | `src/PushPrePrompt.tsx` | Push notification opt-in screen |
 | `src/TermsAgreement.tsx` | Terms & privacy acceptance screen |
@@ -159,7 +160,6 @@ Build & deploy is handled by EAS (see CI/CD section).
 - **expo-audio** — voice capture (iOS) + playback (both platforms) for Gemini Live
 - **@mykin-ai/expo-audio-stream 0.3.x** — voice capture on Android (PCM streaming via AudioRecord)
 - **expo-notifications** — APNs/FCM push
-- **expo-local-authentication** — biometric auth
 - **Jest 30.3.0 + ts-jest** — testing
 
 ## Environment variables
@@ -200,7 +200,7 @@ Push to `main` → GitHub Actions → tests → EAS Build (iOS + Android) → au
 - **No crash reporting** — no Sentry/Bugsnag/Crashlytics
 - **No staging environment** — web app changes go to production
 - **No analytics** in the native shell
-- **5-second loading timeout** — hardcoded fallback in `ChravelWebView.tsx` line 353
+- **2-second loading timeout** — hardcoded fallback in `scheduleLoadingFallback` (`ChravelWebView.tsx`)
 
 ## Security notes
 
