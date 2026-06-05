@@ -64,6 +64,9 @@ export function buildNativeBootstrapJS(
 ): string {
   return `
     (function installChravelNativeBridge() {
+      if (window.ChravelNative && window.ChravelNative.isNative) {
+        return;
+      }
       var nativeVersion = ${JSON.stringify(nativeVersion)};
       window.Capacitor = window.Capacitor || {};
       window.Capacitor.isNativePlatform = function() { return true; };
@@ -369,9 +372,23 @@ export function buildNativeEnhancementsJS(
 }
 
 /**
+ * Document-end injection: bootstrap fallback (if document-start was missed)
+ * plus post-load DOM/network enhancements.
+ */
+export function buildNativeDocumentEndJS(
+  platform: string,
+  bottomInset: number = 0,
+  isTablet: boolean = false,
+  nativeVersion: string = "1.0.0",
+): string {
+  return `${buildNativeBootstrapJS(platform, isTablet, nativeVersion)}
+${buildNativeEnhancementsJS(platform, bottomInset, isTablet)}`;
+}
+
+/**
  * Backwards-compatible combined injection builder for tests/direct callers.
  * WebView usage should prefer buildNativeBootstrapJS at document-start and
- * buildNativeEnhancementsJS at document-end.
+ * buildNativeDocumentEndJS at document-end.
  */
 export function buildInjectedJS(
   platform: string,

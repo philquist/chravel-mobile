@@ -4,6 +4,7 @@ import {
   buildInjectedJS,
   buildNativeBootstrapJS,
   buildNativeEnhancementsJS,
+  buildNativeDocumentEndJS,
 } from "../bridge";
 
 describe("parseBridgeMessage", () => {
@@ -164,6 +165,19 @@ describe("buildInjectedJS", () => {
     expect(result).toContain("__chravelNativeEnhancementsInstalled");
     expect(result).toContain("wireNetworkPinnedSignals");
     expect(result).not.toContain("window.ChravelNative =");
+  });
+
+  it("keeps bootstrap idempotent when document-end fallback runs after document-start", () => {
+    const result = buildNativeBootstrapJS("ios");
+    expect(result).toContain("window.ChravelNative && window.ChravelNative.isNative");
+  });
+
+  it("includes bootstrap fallback plus enhancements for document-end injection", () => {
+    const result = buildNativeDocumentEndJS("ios");
+    expect(result).toContain("window.ChravelNative");
+    expect(result).toContain("chravel:native-ready");
+    expect(result).toContain("__chravelNativeEnhancementsInstalled");
+    expect(result).toContain("wireNetworkPinnedSignals");
   });
 
   it("includes safe area CSS injection", () => {
