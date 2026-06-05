@@ -23,7 +23,7 @@ import {
 } from "./constants";
 import {
   buildNativeBootstrapJS,
-  buildNativeEnhancementsJS,
+  buildNativeDocumentEndJS,
   buildWebEvent,
   parseBridgeMessage,
 } from "./bridge";
@@ -80,8 +80,14 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
     () => buildNativeBootstrapJS(Platform.OS, IS_TABLET, NATIVE_BRIDGE_VERSION),
     [],
   );
-  const nativeEnhancementsJS = useMemo(
-    () => buildNativeEnhancementsJS(Platform.OS, insets.bottom, IS_TABLET),
+  const nativeDocumentEndJS = useMemo(
+    () =>
+      buildNativeDocumentEndJS(
+        Platform.OS,
+        insets.bottom,
+        IS_TABLET,
+        NATIVE_BRIDGE_VERSION,
+      ),
     [insets.bottom],
   );
 
@@ -464,7 +470,7 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
         }}
         style={styles.webview}
         injectedJavaScriptBeforeContentLoaded={nativeBootstrapJS}
-        injectedJavaScript={nativeEnhancementsJS}
+        injectedJavaScript={nativeDocumentEndJS}
         onMessage={handleMessage}
         userAgent={Platform.OS === "ios"
           ? IS_TABLET
@@ -522,6 +528,11 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
           if (statusCode >= 500) onError();
         }}
         onContentProcessDidTerminate={() => {
+          // WKWebView killed the content process (memory pressure). Reset
+          // launch-time refs so the post-reload `ready` message re-forwards
+          // the push token and deferred routes are not dropped.
+          isReadyRef.current = false;
+          didProactiveRegisterRef.current = false;
           webViewRef.current?.reload();
         }}
         pullToRefreshEnabled={Platform.OS === "android"}
