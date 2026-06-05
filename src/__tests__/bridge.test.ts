@@ -1,4 +1,10 @@
-import { parseBridgeMessage, buildWebEvent, buildInjectedJS } from "../bridge";
+import {
+  parseBridgeMessage,
+  buildWebEvent,
+  buildInjectedJS,
+  buildNativeBootstrapJS,
+  buildNativeEnhancementsJS,
+} from "../bridge";
 
 describe("parseBridgeMessage", () => {
   it("parses a valid haptic message", () => {
@@ -132,8 +138,32 @@ describe("buildInjectedJS", () => {
     expect(result).toContain('window.ChravelNative');
     expect(result).toContain('platform: "ios"');
     expect(result).toContain("isNative: true");
+    expect(result).toContain("version: nativeVersion");
+    expect(result).toContain("userAgent: 'ChravelNative/' + nativeVersion");
     expect(result).toContain("openOAuthUrl: function(url)");
     expect(result).toContain('type: "oauth:open"');
+  });
+
+  it("emits syntactically valid injected JavaScript", () => {
+    const result = buildInjectedJS("ios");
+    expect(() => new Function(result)).not.toThrow();
+  });
+
+
+  it("keeps the document-start bootstrap DOM-free", () => {
+    const result = buildNativeBootstrapJS("ios");
+    expect(result).toContain("window.ChravelNative");
+    expect(result).toContain("isNative: true");
+    expect(result).not.toContain("document.");
+    expect(result).not.toContain("MutationObserver");
+    expect(result).not.toContain("wireNetworkPinnedSignals");
+  });
+
+  it("keeps DOM/network enhancements out of native detection", () => {
+    const result = buildNativeEnhancementsJS("ios");
+    expect(result).toContain("__chravelNativeEnhancementsInstalled");
+    expect(result).toContain("wireNetworkPinnedSignals");
+    expect(result).not.toContain("window.ChravelNative =");
   });
 
   it("includes safe area CSS injection", () => {
@@ -161,6 +191,21 @@ describe("buildInjectedJS", () => {
   it("dispatches chravel:native-ready event", () => {
     const result = buildInjectedJS("android");
     expect(result).toContain("chravel:native-ready");
+  });
+
+  it("uses the provided native bridge version", () => {
+    const result = buildInjectedJS("ios", 0, false, "9.8.7");
+    expect(result).toContain('var nativeVersion = "9.8.7"');
+  });
+
+  it("keeps native enhancements idempotent for document-end injection", () => {
+    const result = buildInjectedJS("ios");
+    expect(result).toContain("__chravelNativeEnhancementsInstalled");
+  });
+
+  it("avoids optional chaining in injected JS for broad WKWebView compatibility", () => {
+    const result = buildInjectedJS("ios");
+    expect(result).not.toContain("?.");
   });
 
   it("uses the provided platform string", () => {

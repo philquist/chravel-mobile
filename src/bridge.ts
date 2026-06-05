@@ -53,95 +53,118 @@ export function buildWebEvent(name: string, detail: Record<string, unknown>): st
 }
 
 /**
- * JS injected before the page loads to expose the native bridge.
- * The web app can check `window.ChravelNative` to detect it's
- * inside the Expo shell (as opposed to Capacitor or plain browser).
+ * Minimal document-start JS that exposes native detection and bridge APIs before
+ * the web bundle bootstraps. Keep this DOM-free: WKWebView runs it at document
+ * start, before document.head/body are guaranteed to exist.
  */
-export function buildInjectedJS(platform: string, bottomInset: number = 0, isTablet: boolean = false): string {
+export function buildNativeBootstrapJS(
+  platform: string,
+  isTablet: boolean = false,
+  nativeVersion: string = "1.0.0",
+): string {
   return `
-    window.Capacitor = window.Capacitor || {};
-    window.Capacitor.isNativePlatform = function() { return true; };
-    window.Capacitor.Plugins = window.Capacitor.Plugins || {};
-    window.Capacitor.Plugins.Browser = {
-      open: function(options) {
-        var payload = {
-          type: 'browser:open',
-          url: options && options.url ? String(options.url) : '',
-          presentationStyle: options && options.presentationStyle ? String(options.presentationStyle) : undefined
-        };
-        window.ReactNativeWebView.postMessage(JSON.stringify(payload));
-        return Promise.resolve();
-      },
-      close: function() {
-        return Promise.resolve();
-      }
-    };
-    console.log('Capacitor Browser available:', !!window.Capacitor?.Plugins?.Browser);
+    (function installChravelNativeBridge() {
+      var nativeVersion = ${JSON.stringify(nativeVersion)};
+      window.Capacitor = window.Capacitor || {};
+      window.Capacitor.isNativePlatform = function() { return true; };
+      window.Capacitor.Plugins = window.Capacitor.Plugins || {};
+      window.Capacitor.Plugins.Browser = {
+        open: function(options) {
+          var payload = {
+            type: 'browser:open',
+            url: options && options.url ? String(options.url) : '',
+            presentationStyle: options && options.presentationStyle ? String(options.presentationStyle) : undefined
+          };
+          window.ReactNativeWebView.postMessage(JSON.stringify(payload));
+          return Promise.resolve();
+        },
+        close: function() {
+          return Promise.resolve();
+        }
+      };
 
-    window.ChravelNative = {
-      platform: "${platform}",
-      isNative: true,
-      version: "1.0.0",
-      isTablet: ${isTablet},
-      openOAuthUrl: function(url) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: "oauth:open",
-          url: url ? String(url) : ""
-        }));
-      },
-    };
+      window.ChravelNative = {
+        platform: "${platform}",
+        isNative: true,
+        version: nativeVersion,
+        userAgent: 'ChravelNative/' + nativeVersion,
+        isTablet: ${isTablet},
+        openOAuthUrl: function(url) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: "oauth:open",
+            url: url ? String(url) : ""
+          }));
+        }
+      };
 
-    // ── Native Audio API for Gemini Live voice ──────────────────
-    // The web app can check window.ChravelNativeAudio.isAvailable
-    // and route audio I/O through the native bridge instead of
-    // Web Audio API (which is unreliable in iOS WKWebView).
-    window.ChravelNativeAudio = {
-      isAvailable: true,
-      requestPermission: function() {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'voice:request-permission'
-        }));
-      },
-      startCapture: function() {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'voice:start-capture'
-        }));
-      },
-      stopCapture: function() {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'voice:stop-capture'
-        }));
-      },
-      playAudio: function(base64Pcm16, sampleRate) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'voice:play-audio',
-          audio: base64Pcm16,
-          sampleRate: sampleRate || 24000
-        }));
-      },
-      flushPlayback: function() {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'voice:flush-playback'
-        }));
-      }
-    };
+      // ── Native Audio API for Gemini Live voice ──────────────────
+      window.ChravelNativeAudio = {
+        isAvailable: true,
+        requestPermission: function() {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'voice:request-permission'
+          }));
+        },
+        startCapture: function() {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'voice:start-capture'
+          }));
+        },
+        stopCapture: function() {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'voice:stop-capture'
+          }));
+        },
+        playAudio: function(base64Pcm16, sampleRate) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'voice:play-audio',
+            audio: base64Pcm16,
+            sampleRate: sampleRate || 24000
+          }));
+        },
+        flushPlayback: function() {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'voice:flush-playback'
+          }));
+        }
+      };
 
-    // Add bottom safe area spacing for iOS home indicator.
-    (function() {
-      var style = document.createElement('style');
-      var bottomPadding = Math.max(${bottomInset}, 0);
-      // Fallback for older devices/simulators where inset might be 0 but we want some padding
-      if (bottomPadding === 0 && "${platform}" === "ios") bottomPadding = ${isTablet} ? 20 : 34;
-      style.textContent = [
-        '#root { padding-bottom: ' + bottomPadding + 'px !important; }',
-        'html { padding-bottom: ' + bottomPadding + 'px !important; }',
-      ].join('\\n');
-      document.head.appendChild(style);
+      window.dispatchEvent(new Event('chravel:native-ready'));
     })();
+    true;
+  `;
+}
 
-    // Improve mobile tab UX (overflow clipping) and nudge data refresh
-    // after pin/unpin actions so the Pinned view hydrates reliably.
-    (function() {
+/**
+ * Post-load JS for native-only DOM/network UX patches. This intentionally runs
+ * after the page exists so it cannot block document-start native detection.
+ */
+export function buildNativeEnhancementsJS(
+  platform: string,
+  bottomInset: number = 0,
+  isTablet: boolean = false,
+): string {
+  return `
+    if (!window.__chravelNativeEnhancementsInstalled) {
+      window.__chravelNativeEnhancementsInstalled = true;
+
+      // Add bottom safe area spacing for iOS home indicator.
+      (function() {
+        var style = document.createElement('style');
+        var bottomPadding = Math.max(${bottomInset}, 0);
+        // Fallback for older devices/simulators where inset might be 0 but we want some padding
+        if (bottomPadding === 0 && "${platform}" === "ios") bottomPadding = ${isTablet} ? 20 : 34;
+        style.textContent = [
+          '#root { padding-bottom: ' + bottomPadding + 'px !important; }',
+          'html { padding-bottom: ' + bottomPadding + 'px !important; }',
+        ].join('\\n');
+        var styleParent = document.head || document.documentElement || document.body;
+        if (styleParent) styleParent.appendChild(style);
+      })();
+
+      // Improve mobile tab UX (overflow clipping) and nudge data refresh
+      // after pin/unpin actions so the Pinned view hydrates reliably.
+      (function() {
       var TAB_KEYWORDS = ['messages', 'broadcast', 'pinned', 'search', 'channel', 'chat', 'concierge', 'media', 'calendar'];
 
       function textIncludesAny(value, keywords) {
@@ -337,11 +360,27 @@ export function buildInjectedJS(platform: string, bottomInset: number = 0, isTab
       setTimeout(onRouteChange, 50);
       setTimeout(onRouteChange, 500);
       setTimeout(onRouteChange, 1200);
-    })();
+      })();
+    }
 
-    window.dispatchEvent(new Event('chravel:native-ready'));
+
     true;
   `;
+}
+
+/**
+ * Backwards-compatible combined injection builder for tests/direct callers.
+ * WebView usage should prefer buildNativeBootstrapJS at document-start and
+ * buildNativeEnhancementsJS at document-end.
+ */
+export function buildInjectedJS(
+  platform: string,
+  bottomInset: number = 0,
+  isTablet: boolean = false,
+  nativeVersion: string = "1.0.0",
+): string {
+  return `${buildNativeBootstrapJS(platform, isTablet, nativeVersion)}
+${buildNativeEnhancementsJS(platform, bottomInset, isTablet)}`;
 }
 
 /**
