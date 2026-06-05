@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   AppState,
@@ -14,8 +14,19 @@ import * as WebBrowser from "expo-web-browser";
 import { Share } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { WEB_APP_URL, NATIVE_USER_AGENT_SUFFIX, COLORS, IS_TABLET } from "./constants";
-import { buildInjectedJS, buildWebEvent, parseBridgeMessage } from "./bridge";
+import {
+  WEB_APP_URL,
+  NATIVE_BRIDGE_VERSION,
+  NATIVE_USER_AGENT_SUFFIX,
+  COLORS,
+  IS_TABLET,
+} from "./constants";
+import {
+  buildNativeBootstrapJS,
+  buildNativeEnhancementsJS,
+  buildWebEvent,
+  parseBridgeMessage,
+} from "./bridge";
 import {
   registerForPushNotifications,
   getNotificationDeepLink,
@@ -65,6 +76,14 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
   const initialUrlRef = useRef<string | null>(null);
   const loadingHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasReportedInitialLoadEndRef = useRef(false);
+  const nativeBootstrapJS = useMemo(
+    () => buildNativeBootstrapJS(Platform.OS, IS_TABLET, NATIVE_BRIDGE_VERSION),
+    [],
+  );
+  const nativeEnhancementsJS = useMemo(
+    () => buildNativeEnhancementsJS(Platform.OS, insets.bottom, IS_TABLET),
+    [insets.bottom],
+  );
 
   const clearLoadingFallbackTimer = useCallback(() => {
     if (loadingHideTimerRef.current !== null) {
@@ -444,7 +463,8 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
               : undefined,
         }}
         style={styles.webview}
-        injectedJavaScriptBeforeContentLoaded={buildInjectedJS(Platform.OS, insets.bottom, IS_TABLET)}
+        injectedJavaScriptBeforeContentLoaded={nativeBootstrapJS}
+        injectedJavaScript={nativeEnhancementsJS}
         onMessage={handleMessage}
         userAgent={Platform.OS === "ios"
           ? IS_TABLET
