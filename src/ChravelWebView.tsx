@@ -355,16 +355,20 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
         );
         break;
 
-      case "push:checkPermissions": {
-        const receive = await checkPushPermission();
-        webViewRef.current?.injectJavaScript(
-          buildPushPermissionResponse(message.requestId, receive),
-        );
-        break;
-      }
-
+      case "push:checkPermissions":
       case "push:requestPermissions": {
-        const receive = await requestPushPermission();
+        // Always resolve the shim's pending promise — fall back to "denied"
+        // if the native permission lookup throws, so web push flows that
+        // await checkPermissions()/requestPermissions() can't hang forever.
+        let receive: string = "denied";
+        try {
+          receive =
+            message.type === "push:checkPermissions"
+              ? await checkPushPermission()
+              : await requestPushPermission();
+        } catch {
+          receive = "denied";
+        }
         webViewRef.current?.injectJavaScript(
           buildPushPermissionResponse(message.requestId, receive),
         );
