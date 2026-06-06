@@ -25,10 +25,13 @@ import {
   buildNativeBootstrapJS,
   buildNativeDocumentEndJS,
   buildWebEvent,
+  buildPushPermissionResponse,
   parseBridgeMessage,
 } from "./bridge";
 import {
   registerForPushNotifications,
+  checkPushPermission,
+  requestPushPermission,
   getNotificationDeepLink,
   clearNotificationBadge,
 } from "./notifications";
@@ -350,6 +353,32 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
         webViewRef.current?.injectJavaScript(
           buildWebEvent("chravel:push-unregistered", { success: true }),
         );
+        break;
+
+      case "push:checkPermissions":
+      case "push:requestPermissions": {
+        // Always resolve the shim's pending promise — fall back to "denied"
+        // if the native permission lookup throws, so web push flows that
+        // await checkPermissions()/requestPermissions() can't hang forever.
+        let receive: string = "denied";
+        try {
+          receive =
+            message.type === "push:checkPermissions"
+              ? await checkPushPermission()
+              : await requestPushPermission();
+        } catch {
+          receive = "denied";
+        }
+        webViewRef.current?.injectJavaScript(
+          buildPushPermissionResponse(message.requestId, receive),
+        );
+        break;
+      }
+
+      case "openAppSettings":
+      case "openNotificationSettings":
+        // iOS opens the app's settings page (closest to notification settings).
+        await Linking.openSettings();
         break;
 
       case "revenuecat:identify":

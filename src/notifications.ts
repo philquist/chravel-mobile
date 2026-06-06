@@ -163,6 +163,61 @@ export async function registerForPushNotifications(
 }
 
 /**
+ * Capacitor-style permission state, mirroring the `receive` field the
+ * injected window.Capacitor.Plugins.PushNotifications shim returns to
+ * chravel-web (`granted` | `denied` | `prompt`).
+ */
+export type CapacitorPermissionState = "granted" | "denied" | "prompt";
+
+/**
+ * Map an expo-notifications permission object to a Capacitor `receive` value.
+ * iOS provisional authorization is treated as `granted` per the chravel-web
+ * contract.
+ */
+function toCapacitorPermissionState(
+  permissions: Notifications.NotificationPermissionsStatus,
+): CapacitorPermissionState {
+  if (permissions.status === "granted" || permissions.granted) {
+    return "granted";
+  }
+
+  // iOS provisional ("quiet") authorization counts as granted.
+  if (
+    Platform.OS === "ios" &&
+    permissions.ios?.status ===
+      Notifications.IosAuthorizationStatus.PROVISIONAL
+  ) {
+    return "granted";
+  }
+
+  if (permissions.status === "undetermined") {
+    return "prompt";
+  }
+
+  return "denied";
+}
+
+/**
+ * Check the current push permission without prompting. Returns a
+ * Capacitor-style `receive` value for the PushNotifications shim.
+ */
+export async function checkPushPermission(): Promise<CapacitorPermissionState> {
+  if (!Device.isDevice) return "denied";
+  const permissions = await Notifications.getPermissionsAsync();
+  return toCapacitorPermissionState(permissions);
+}
+
+/**
+ * Request push permission (shows the OS prompt if undetermined) and return a
+ * Capacitor-style `receive` value for the PushNotifications shim.
+ */
+export async function requestPushPermission(): Promise<CapacitorPermissionState> {
+  if (!Device.isDevice) return "denied";
+  const permissions = await Notifications.requestPermissionsAsync();
+  return toCapacitorPermissionState(permissions);
+}
+
+/**
  * Clear the app-icon badge and dismiss any delivered notifications.
  * Called when the app returns to the foreground so the badge count
  * (set from `aps.badge`) doesn't linger after the user has seen things.

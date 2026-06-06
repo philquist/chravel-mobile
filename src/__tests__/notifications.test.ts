@@ -12,6 +12,8 @@ import {
   getChannelForPushType,
   IOS_NOTIFICATION_CATEGORIES,
   registerForPushNotifications,
+  checkPushPermission,
+  requestPushPermission,
   clearNotificationBadge,
 } from "../notifications";
 
@@ -25,6 +27,13 @@ jest.mock("expo-notifications", () => ({
   setBadgeCountAsync: jest.fn(),
   dismissAllNotificationsAsync: jest.fn(),
   AndroidImportance: { MAX: 5 },
+  IosAuthorizationStatus: {
+    NOT_DETERMINED: 0,
+    DENIED: 1,
+    AUTHORIZED: 2,
+    PROVISIONAL: 3,
+    EPHEMERAL: 4,
+  },
   addNotificationResponseReceivedListener: jest.fn(),
 }));
 
@@ -33,6 +42,11 @@ jest.mock("expo-device", () => ({
 }));
 
 import * as Notifications from "expo-notifications";
+
+// The mocked module object — mutate `.isDevice` here to simulate
+// physical-device vs simulator. The source's `import * as Device` reads it
+// through a live getter binding, so changes are reflected.
+const deviceMock = jest.requireMock("expo-device") as { isDevice: boolean };
 
 describe("parseNotificationPayload", () => {
   it("parses a valid chat_message payload", () => {
@@ -273,5 +287,57 @@ describe("clearNotificationBadge", () => {
   it("swallows errors from the badge APIs", async () => {
     mockSetBadge.mockRejectedValue(new Error("unsupported"));
     await expect(clearNotificationBadge()).resolves.toBeUndefined();
+  });
+});
+
+describe("checkPushPermission / requestPushPermission", () => {
+  const mockGetPermissions = Notifications.getPermissionsAsync as jest.Mock;
+  const mockRequestPermissions = Notifications.requestPermissionsAsync as jest.Mock;
+
+  beforeEach(() => {
+    platformMock.OS = "ios";
+    deviceMock.isDevice = true;
+    mockGetPermissions.mockReset();
+    mockRequestPermissions.mockReset();
+  });
+
+  afterAll(() => {
+    deviceMock.isDevice = true;
+  });
+
+  it("maps granted status to 'granted'", async () => {
+    mockGetPermissions.mockResolvedValue({ status: "granted", granted: true });
+    expect(await checkPushPermission()).toBe("granted");
+  });
+
+  it("maps denied status to 'denied'", async () => {
+    mockGetPermissions.mockResolvedValue({ status: "denied", granted: false });
+    expect(await checkPushPermission()).toBe("denied");
+  });
+
+  it("maps undetermined status to 'prompt'", async () => {
+    mockGetPermissions.mockResolvedValue({ status: "undetermined", granted: false });
+    expect(await checkPushPermission()).toBe("prompt");
+  });
+
+  it("maps iOS provisional authorization to 'granted'", async () => {
+    mockGetPermissions.mockResolvedValue({
+      status: "denied",
+      granted: false,
+      ios: { status: Notifications.IosAuthorizationStatus.PROVISIONAL },
+    });
+    expect(await checkPushPermission()).toBe("granted");
+  });
+
+  it("returns 'denied' on a non-physical device without querying permissions", async () => {
+    deviceMock.isDevice = false;
+    expect(await checkPushPermission()).toBe("denied");
+    expect(mockGetPermissions).not.toHaveBeenCalled();
+  });
+
+  it("requestPushPermission prompts and maps the result", async () => {
+    mockRequestPermissions.mockResolvedValue({ status: "granted", granted: true });
+    expect(await requestPushPermission()).toBe("granted");
+    expect(mockRequestPermissions).toHaveBeenCalled();
   });
 });
