@@ -18,6 +18,10 @@ export type BridgeMessage =
   | { type: "oauth:open"; url: string }
   | { type: "push:register" }
   | { type: "push:unregister" }
+  | { type: "push:checkPermissions"; requestId: string }
+  | { type: "push:requestPermissions"; requestId: string }
+  | { type: "openAppSettings" }
+  | { type: "openNotificationSettings" }
   | { type: "revenuecat:purchase"; packageId: string }
   | { type: "revenuecat:restore" }
   | { type: "revenuecat:getCustomerInfo" }
@@ -50,6 +54,22 @@ export function buildWebEvent(name: string, detail: Record<string, unknown>): st
   const payload = JSON.stringify(detail);
   // The trailing `true;` prevents the WebView from navigating.
   return `window.dispatchEvent(new CustomEvent('${name}', { detail: ${payload} })); true;`;
+}
+
+/**
+ * Build a JS string that resolves a pending PushNotifications permission
+ * promise in the injected Capacitor shim. The shim posts a `requestId` with
+ * `push:checkPermissions` / `push:requestPermissions`; native replies by
+ * injecting this so `checkPermissions()` / `requestPermissions()` resolve with
+ * a Capacitor-style `{ receive }` value.
+ */
+export function buildPushPermissionResponse(
+  requestId: string,
+  receive: string,
+): string {
+  return `window.__chravelPushResolvePermission && window.__chravelPushResolvePermission(${JSON.stringify(
+    requestId,
+  )}, ${JSON.stringify(receive)}); true;`;
 }
 
 /**
@@ -86,6 +106,105 @@ export function buildNativeBootstrapJS(
         }
       };
 
+      // ── Capacitor PushNotifications shim ────────────────────────
+      // chravel-web (PR #683) reads window.Capacitor.Plugins.PushNotifications
+      // and does NOT bundle @capacitor/push-notifications — the native shell
+      // injects it here. register() reuses the existing push:register handler,
+      // and the native 'chravel:push-token' event is translated below into the
+      // Capacitor 'registration' / 'registrationError' events the web expects.
+      var __chravelPush = window.__chravelPush || {
+        listeners: {},
+        permResolvers: {},
+        lastRegistration: null,
+        lastRegistrationError: null
+      };
+      window.__chravelPush = __chravelPush;
+
+      function __chravelPushDispatch(event, payload) {
+        var arr = __chravelPush.listeners[event];
+        if (!arr) return;
+        arr.slice().forEach(function(cb) {
+          try { cb(payload); } catch (e) {}
+        });
+      }
+
+      // Called from native (injected JS) to resolve a permission round-trip.
+      window.__chravelPushResolvePermission = function(requestId, receive) {
+        var resolve = __chravelPush.permResolvers[requestId];
+        if (resolve) {
+          delete __chravelPush.permResolvers[requestId];
+          resolve({ receive: receive });
+        }
+      };
+
+      function __chravelRequestPermission(type) {
+        return new Promise(function(resolve) {
+          var requestId = 'cp_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+          __chravelPush.permResolvers[requestId] = resolve;
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: type,
+            requestId: requestId
+          }));
+        });
+      }
+
+      window.Capacitor.Plugins.PushNotifications = {
+        checkPermissions: function() {
+          return __chravelRequestPermission('push:checkPermissions');
+        },
+        requestPermissions: function() {
+          return __chravelRequestPermission('push:requestPermissions');
+        },
+        register: function() {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'push:register'
+          }));
+          return Promise.resolve();
+        },
+        addListener: function(eventName, listener) {
+          if (!__chravelPush.listeners[eventName]) {
+            __chravelPush.listeners[eventName] = [];
+          }
+          __chravelPush.listeners[eventName].push(listener);
+          // Replay the last result so a listener added after a proactive /
+          // on-launch registration (or app restart) still receives the token.
+          if (eventName === 'registration' && __chravelPush.lastRegistration) {
+            try { listener(__chravelPush.lastRegistration); } catch (e) {}
+          } else if (eventName === 'registrationError' && __chravelPush.lastRegistrationError) {
+            try { listener(__chravelPush.lastRegistrationError); } catch (e) {}
+          }
+          return Promise.resolve({
+            remove: function() {
+              var arr = __chravelPush.listeners[eventName];
+              if (arr) {
+                var i = arr.indexOf(listener);
+                if (i !== -1) arr.splice(i, 1);
+              }
+              return Promise.resolve();
+            }
+          });
+        },
+        removeAllListeners: function() {
+          __chravelPush.listeners = {};
+          return Promise.resolve();
+        }
+      };
+
+      // Translate the native push-token event into Capacitor push events.
+      window.addEventListener('chravel:push-token', function(e) {
+        var detail = (e && e.detail) ? e.detail : {};
+        if (detail.token) {
+          var payload = { value: String(detail.token) };
+          __chravelPush.lastRegistration = payload;
+          __chravelPush.lastRegistrationError = null;
+          __chravelPushDispatch('registration', payload);
+        } else {
+          var err = { error: detail.error ? String(detail.error) : 'Push registration failed' };
+          __chravelPush.lastRegistrationError = err;
+          __chravelPushDispatch('registrationError', err);
+        }
+      });
+
       window.ChravelNative = {
         platform: "${platform}",
         isNative: true,
@@ -96,6 +215,16 @@ export function buildNativeBootstrapJS(
           window.ReactNativeWebView.postMessage(JSON.stringify({
             type: "oauth:open",
             url: url ? String(url) : ""
+          }));
+        },
+        openAppSettings: function() {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: "openAppSettings"
+          }));
+        },
+        openNotificationSettings: function() {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: "openNotificationSettings"
           }));
         }
       };
@@ -432,6 +561,8 @@ export function parseBridgeMessage(raw: string): BridgeMessage | null {
 
       case "push:register":
       case "push:unregister":
+      case "openAppSettings":
+      case "openNotificationSettings":
       case "revenuecat:restore":
       case "revenuecat:getCustomerInfo":
       case "ready":
@@ -440,6 +571,13 @@ export function parseBridgeMessage(raw: string): BridgeMessage | null {
       case "voice:stop-capture":
       case "voice:flush-playback":
         return data as BridgeMessage;
+
+      case "push:checkPermissions":
+      case "push:requestPermissions":
+        if (typeof data.requestId === "string") {
+          return data as BridgeMessage;
+        }
+        return null;
 
       case "revenuecat:purchase":
         if (typeof data.packageId === "string") {

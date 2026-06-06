@@ -25,10 +25,13 @@ import {
   buildNativeBootstrapJS,
   buildNativeDocumentEndJS,
   buildWebEvent,
+  buildPushPermissionResponse,
   parseBridgeMessage,
 } from "./bridge";
 import {
   registerForPushNotifications,
+  checkPushPermission,
+  requestPushPermission,
   getNotificationDeepLink,
   clearNotificationBadge,
 } from "./notifications";
@@ -350,6 +353,28 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
         webViewRef.current?.injectJavaScript(
           buildWebEvent("chravel:push-unregistered", { success: true }),
         );
+        break;
+
+      case "push:checkPermissions": {
+        const receive = await checkPushPermission();
+        webViewRef.current?.injectJavaScript(
+          buildPushPermissionResponse(message.requestId, receive),
+        );
+        break;
+      }
+
+      case "push:requestPermissions": {
+        const receive = await requestPushPermission();
+        webViewRef.current?.injectJavaScript(
+          buildPushPermissionResponse(message.requestId, receive),
+        );
+        break;
+      }
+
+      case "openAppSettings":
+      case "openNotificationSettings":
+        // iOS opens the app's settings page (closest to notification settings).
+        await Linking.openSettings();
         break;
 
       case "revenuecat:identify":

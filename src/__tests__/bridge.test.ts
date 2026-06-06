@@ -1,6 +1,7 @@
 import {
   parseBridgeMessage,
   buildWebEvent,
+  buildPushPermissionResponse,
   buildInjectedJS,
   buildNativeBootstrapJS,
   buildNativeEnhancementsJS,
@@ -109,10 +110,56 @@ describe("parseBridgeMessage", () => {
     ).toBeNull();
   });
 
+  it("parses push:register and push:unregister messages", () => {
+    expect(parseBridgeMessage(JSON.stringify({ type: "push:register" }))).toEqual({
+      type: "push:register",
+    });
+    expect(parseBridgeMessage(JSON.stringify({ type: "push:unregister" }))).toEqual({
+      type: "push:unregister",
+    });
+  });
+
+  it("parses push:checkPermissions / push:requestPermissions with a requestId", () => {
+    expect(
+      parseBridgeMessage(JSON.stringify({ type: "push:checkPermissions", requestId: "cp_1" }))
+    ).toEqual({ type: "push:checkPermissions", requestId: "cp_1" });
+    expect(
+      parseBridgeMessage(JSON.stringify({ type: "push:requestPermissions", requestId: "cp_2" }))
+    ).toEqual({ type: "push:requestPermissions", requestId: "cp_2" });
+  });
+
+  it("returns null for push permission messages without a string requestId", () => {
+    expect(
+      parseBridgeMessage(JSON.stringify({ type: "push:checkPermissions" }))
+    ).toBeNull();
+    expect(
+      parseBridgeMessage(JSON.stringify({ type: "push:requestPermissions", requestId: 123 }))
+    ).toBeNull();
+  });
+
+  it("parses openAppSettings and openNotificationSettings messages", () => {
+    expect(parseBridgeMessage(JSON.stringify({ type: "openAppSettings" }))).toEqual({
+      type: "openAppSettings",
+    });
+    expect(
+      parseBridgeMessage(JSON.stringify({ type: "openNotificationSettings" }))
+    ).toEqual({ type: "openNotificationSettings" });
+  });
+
   it("returns null for unknown message type", () => {
     expect(
       parseBridgeMessage(JSON.stringify({ type: "unknown:action" }))
     ).toBeNull();
+  });
+});
+
+describe("buildPushPermissionResponse", () => {
+  it("builds a JS string that resolves the shim's pending permission promise", () => {
+    const result = buildPushPermissionResponse("cp_42", "granted");
+    expect(result).toContain("window.__chravelPushResolvePermission");
+    expect(result).toContain('"cp_42"');
+    expect(result).toContain('"granted"');
+    expect(result).toEndWith("true;");
   });
 });
 
@@ -143,6 +190,26 @@ describe("buildInjectedJS", () => {
     expect(result).toContain("userAgent: 'ChravelNative/' + nativeVersion");
     expect(result).toContain("openOAuthUrl: function(url)");
     expect(result).toContain('type: "oauth:open"');
+  });
+
+  it("injects the Capacitor PushNotifications shim with all required methods", () => {
+    const result = buildInjectedJS("ios");
+    expect(result).toContain("window.Capacitor.Plugins.PushNotifications");
+    expect(result).toContain("checkPermissions: function()");
+    expect(result).toContain("requestPermissions: function()");
+    expect(result).toContain("register: function()");
+    expect(result).toContain("addListener: function(eventName, listener)");
+    expect(result).toContain("removeAllListeners: function()");
+    // Translates the native push-token event into Capacitor push events.
+    expect(result).toContain("chravel:push-token");
+  });
+
+  it("includes ChravelNative settings deep-link methods", () => {
+    const result = buildInjectedJS("ios");
+    expect(result).toContain("openAppSettings: function()");
+    expect(result).toContain("openNotificationSettings: function()");
+    expect(result).toContain('type: "openAppSettings"');
+    expect(result).toContain('type: "openNotificationSettings"');
   });
 
   it("emits syntactically valid injected JavaScript", () => {
@@ -250,6 +317,121 @@ describe("buildInjectedJS", () => {
   it("uses 34px safe area fallback for iPhone on iOS", () => {
     const result = buildInjectedJS("ios", 0, false);
     expect(result).toContain("false ? 20 : 34");
+  });
+});
+
+describe("Capacitor PushNotifications shim (runtime behavior)", () => {
+  // Evaluate the document-start bootstrap against a fake window so we exercise
+  // the injected shim exactly as a WebView would.
+  class FakeEvent {
+    type: string;
+    constructor(type: string) {
+      this.type = type;
+    }
+  }
+  class FakeCustomEvent {
+    type: string;
+    detail: unknown;
+    constructor(type: string, init?: { detail?: unknown }) {
+      this.type = type;
+      this.detail = init ? init.detail : undefined;
+    }
+  }
+
+  function installShim() {
+    const eventListeners: Record<string, Array<(e: unknown) => void>> = {};
+    const postMessage = jest.fn();
+    const win: Record<string, unknown> = {
+      ReactNativeWebView: { postMessage },
+      addEventListener: (name: string, cb: (e: unknown) => void) => {
+        (eventListeners[name] = eventListeners[name] || []).push(cb);
+      },
+      dispatchEvent: (evt: { type: string }) => {
+        (eventListeners[evt.type] || []).forEach((cb) => cb(evt));
+        return true;
+      },
+    };
+
+    const js = buildNativeBootstrapJS("ios");
+    // eslint-disable-next-line no-new-func
+    const fn = new Function("window", "Event", "CustomEvent", js);
+    fn(win, FakeEvent, FakeCustomEvent);
+
+    const plugin = (win.Capacitor as { Plugins: { PushNotifications: any } }).Plugins
+      .PushNotifications;
+    const fireToken = (detail: { token?: string; error?: string }) =>
+      (win.dispatchEvent as (e: unknown) => void)(
+        new FakeCustomEvent("chravel:push-token", { detail }),
+      );
+
+    return { win, plugin, postMessage, fireToken };
+  }
+
+  it("exposes all five required methods", () => {
+    const { plugin } = installShim();
+    expect(typeof plugin.checkPermissions).toBe("function");
+    expect(typeof plugin.requestPermissions).toBe("function");
+    expect(typeof plugin.register).toBe("function");
+    expect(typeof plugin.addListener).toBe("function");
+    expect(typeof plugin.removeAllListeners).toBe("function");
+  });
+
+  it("delivers the token to a registration listener attached before register()", async () => {
+    const { plugin, postMessage, fireToken } = installShim();
+    const received: Array<{ value: string }> = [];
+
+    await plugin.addListener("registration", (t: { value: string }) => received.push(t));
+    await plugin.register();
+    expect(postMessage).toHaveBeenCalledWith(
+      JSON.stringify({ type: "push:register" }),
+    );
+
+    // Native obtains the token and emits chravel:push-token.
+    fireToken({ token: "fcm-token-123" });
+    expect(received).toEqual([{ value: "fcm-token-123" }]);
+  });
+
+  it("replays the last registration to a listener added after the token arrived", async () => {
+    const { plugin, fireToken } = installShim();
+    fireToken({ token: "fcm-token-late" });
+
+    const received: Array<{ value: string }> = [];
+    await plugin.addListener("registration", (t: { value: string }) => received.push(t));
+    expect(received).toEqual([{ value: "fcm-token-late" }]);
+  });
+
+  it("routes a token-less event to registrationError", async () => {
+    const { plugin, fireToken } = installShim();
+    const errors: Array<{ error: string }> = [];
+
+    await plugin.addListener("registrationError", (e: { error: string }) => errors.push(e));
+    fireToken({ error: "Permission not granted" });
+    expect(errors).toEqual([{ error: "Permission not granted" }]);
+  });
+
+  it("resolves checkPermissions via the native permission round-trip", async () => {
+    const { plugin, postMessage, win } = installShim();
+    const pending = plugin.checkPermissions();
+
+    const sent = JSON.parse(postMessage.mock.calls[0][0]);
+    expect(sent.type).toBe("push:checkPermissions");
+    expect(typeof sent.requestId).toBe("string");
+
+    // Native replies (as buildPushPermissionResponse would).
+    (win.__chravelPushResolvePermission as (id: string, r: string) => void)(
+      sent.requestId,
+      "granted",
+    );
+    await expect(pending).resolves.toEqual({ receive: "granted" });
+  });
+
+  it("removeAllListeners clears registered listeners", async () => {
+    const { plugin, fireToken } = installShim();
+    const received: unknown[] = [];
+    await plugin.addListener("registration", (t: unknown) => received.push(t));
+    await plugin.removeAllListeners();
+    fireToken({ token: "should-not-deliver" });
+    expect(received).toEqual([]);
   });
 });
 

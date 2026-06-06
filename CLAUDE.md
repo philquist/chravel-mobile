@@ -71,8 +71,12 @@ Any changes here **must** be coordinated with the web app in `ChravelApp`.
 |---|---|---|
 | `ready` | — | Web app finished loading |
 | `haptic` | `style: light\|medium\|heavy\|success\|warning\|error` | Trigger haptic feedback |
-| `push:register` | — | Request native push token |
+| `push:register` | — | Request native push token (fires `chravel:push-token`) |
 | `push:unregister` | — | Revoke push registration |
+| `push:checkPermissions` | `requestId` | Query push permission without prompting; native replies by resolving the `PushNotifications` shim promise (`{ receive }`) |
+| `push:requestPermissions` | `requestId` | Request push permission (OS prompt); native resolves the shim promise (`{ receive }`) |
+| `openAppSettings` | — | Open the iOS app settings page (denied-permission UX) |
+| `openNotificationSettings` | — | Open notification settings (falls back to app settings on iOS) |
 | `revenuecat:identify` | `userId` | Link Supabase user to RevenueCat |
 | `revenuecat:purchase` | `packageId` | Purchase a subscription |
 | `revenuecat:restore` | — | Restore purchases |
@@ -136,8 +140,34 @@ notification: {
 ### Injected globals
 
 The native shell injects these before page load (`buildInjectedJS` in `bridge.ts`):
-- `window.ChravelNative` — `{ platform: "ios"|"android", isNative: true, version: "1.0.0", isTablet, openOAuthUrl(url) }`
+- `window.ChravelNative` — `{ platform: "ios"|"android", isNative: true, version: "1.0.0", isTablet, openOAuthUrl(url), openAppSettings(), openNotificationSettings() }`
 - `window.ChravelNativeAudio` — `{ isAvailable, requestPermission(), startCapture(), stopCapture(), playAudio(base64, sampleRate), flushPlayback() }`
+- `window.Capacitor` — `{ isNativePlatform(): true, Plugins: { Browser, PushNotifications } }`
+
+#### `window.Capacitor.Plugins.PushNotifications`
+
+Capacitor-compatible push shim consumed by chravel-web (implements the contract
+from **chravel-web PR #683** — `src/lib/nativePushBridge.ts` — which reads the
+plugin from `window.Capacitor.Plugins.PushNotifications` rather than bundling
+`@capacitor/push-notifications`):
+
+| Method | Returns | Notes |
+|---|---|---|
+| `checkPermissions()` | `Promise<{ receive }>` | `receive`: `granted` \| `denied` \| `prompt` (iOS provisional → `granted`). Routed through `push:checkPermissions`. |
+| `requestPermissions()` | `Promise<{ receive }>` | Shows the OS prompt. Routed through `push:requestPermissions`. |
+| `register()` | `Promise<void>` | Posts `push:register`; the token is delivered asynchronously to the `registration` listener. |
+| `addListener(event, cb)` | `Promise<{ remove() }>` | `event`: `registration` \| `registrationError`. Listeners may be attached **before** `register()`. The last result is replayed to listeners added after the token arrived (covers proactive on-launch registration and app restart). |
+| `removeAllListeners()` | `Promise<void>` | Clears all listeners. |
+
+Events fired to listeners:
+- `registration` → `{ value: "<token>" }` — the native device token (**APNs on iOS, FCM on Android**, from `getDevicePushTokenAsync()`).
+- `registrationError` → `{ error: "<message>" }`.
+
+The shim is a thin translator: the native side keeps emitting the existing
+`chravel:push-token` event (via `emitPushToken` in `ChravelWebView.tsx`), and the
+injected shim re-dispatches it as `registration` / `registrationError`. No
+Capacitor or Firebase SDK is bundled in this repo. The web app owns the
+`push_device_tokens` upsert once it receives the token.
 
 ## Commands
 
