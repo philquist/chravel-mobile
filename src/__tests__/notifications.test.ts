@@ -267,6 +267,21 @@ describe("registerForPushNotifications platform setup", () => {
     expect(result.token).toBe("test-token");
     expect(mockRequest).not.toHaveBeenCalled();
   });
+
+  it("returns the token for iOS provisional authorization without prompting", async () => {
+    platformMock.OS = "ios";
+    mockGetPermissions.mockResolvedValue({
+      status: "denied",
+      granted: false,
+      ios: { status: Notifications.IosAuthorizationStatus.PROVISIONAL },
+    });
+    const mockRequest = Notifications.requestPermissionsAsync as jest.Mock;
+
+    const result = await registerForPushNotifications({ promptIfNeeded: false });
+
+    expect(result.token).toBe("test-token");
+    expect(mockRequest).not.toHaveBeenCalled();
+  });
 });
 
 describe("clearNotificationBadge", () => {

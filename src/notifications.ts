@@ -130,18 +130,16 @@ export async function registerForPushNotifications(
     return { token: null, error: "Push notifications require a physical device" };
   }
 
-  const { status: existing } = await Notifications.getPermissionsAsync();
-  let finalStatus = existing;
+  let permissions = await Notifications.getPermissionsAsync();
 
-  if (existing !== "granted") {
+  if (!isPushPermissionGranted(permissions)) {
     if (!promptIfNeeded) {
       return { token: null, error: "Permission not granted" };
     }
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
+    permissions = await Notifications.requestPermissionsAsync();
   }
 
-  if (finalStatus !== "granted") {
+  if (!isPushPermissionGranted(permissions)) {
     return { token: null, error: "Permission not granted" };
   }
 
@@ -177,16 +175,7 @@ export type CapacitorPermissionState = "granted" | "denied" | "prompt";
 function toCapacitorPermissionState(
   permissions: Notifications.NotificationPermissionsStatus,
 ): CapacitorPermissionState {
-  if (permissions.status === "granted" || permissions.granted) {
-    return "granted";
-  }
-
-  // iOS provisional ("quiet") authorization counts as granted.
-  if (
-    Platform.OS === "ios" &&
-    permissions.ios?.status ===
-      Notifications.IosAuthorizationStatus.PROVISIONAL
-  ) {
+  if (isPushPermissionGranted(permissions)) {
     return "granted";
   }
 
@@ -195,6 +184,21 @@ function toCapacitorPermissionState(
   }
 
   return "denied";
+}
+
+/** True when the OS will allow obtaining a native APNs/FCM device token. */
+function isPushPermissionGranted(
+  permissions: Notifications.NotificationPermissionsStatus,
+): boolean {
+  if (permissions.status === "granted" || permissions.granted) {
+    return true;
+  }
+
+  // iOS provisional ("quiet") authorization counts as granted.
+  return (
+    Platform.OS === "ios" &&
+    permissions.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL
+  );
 }
 
 /**
