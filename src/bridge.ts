@@ -73,6 +73,18 @@ export function buildPushPermissionResponse(
 }
 
 /**
+ * Clear cached Capacitor push registration replay state in the injected shim.
+ * Must run on push:unregister so a subsequent addListener() cannot replay a
+ * prior user's device token after account switch within the same WebView session.
+ */
+export function buildClearPushRegistrationCache(): string {
+  return `if (window.__chravelPush) {
+    window.__chravelPush.lastRegistration = null;
+    window.__chravelPush.lastRegistrationError = null;
+  } true;`;
+}
+
+/**
  * Minimal document-start JS that exposes native detection and bridge APIs before
  * the web bundle bootstraps. Keep this DOM-free: WKWebView runs it at document
  * start, before document.head/body are guaranteed to exist.
@@ -200,6 +212,7 @@ export function buildNativeBootstrapJS(
           __chravelPushDispatch('registration', payload);
         } else {
           var err = { error: detail.error ? String(detail.error) : 'Push registration failed' };
+          __chravelPush.lastRegistration = null;
           __chravelPush.lastRegistrationError = err;
           __chravelPushDispatch('registrationError', err);
         }

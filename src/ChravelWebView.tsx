@@ -26,6 +26,7 @@ import {
   buildNativeDocumentEndJS,
   buildWebEvent,
   buildPushPermissionResponse,
+  buildClearPushRegistrationCache,
   parseBridgeMessage,
 } from "./bridge";
 import {
@@ -351,7 +352,8 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
 
       case "push:unregister":
         webViewRef.current?.injectJavaScript(
-          buildWebEvent("chravel:push-unregistered", { success: true }),
+          `${buildClearPushRegistrationCache()}
+${buildWebEvent("chravel:push-unregistered", { success: true })}`,
         );
         break;
 

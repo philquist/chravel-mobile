@@ -2,6 +2,7 @@ import {
   parseBridgeMessage,
   buildWebEvent,
   buildPushPermissionResponse,
+  buildClearPushRegistrationCache,
   buildInjectedJS,
   buildNativeBootstrapJS,
   buildNativeEnhancementsJS,
@@ -159,6 +160,15 @@ describe("buildPushPermissionResponse", () => {
     expect(result).toContain("window.__chravelPushResolvePermission");
     expect(result).toContain('"cp_42"');
     expect(result).toContain('"granted"');
+    expect(result).toEndWith("true;");
+  });
+});
+
+describe("buildClearPushRegistrationCache", () => {
+  it("clears cached registration replay state in the injected shim", () => {
+    const result = buildClearPushRegistrationCache();
+    expect(result).toContain("window.__chravelPush.lastRegistration = null");
+    expect(result).toContain("window.__chravelPush.lastRegistrationError = null");
     expect(result).toEndWith("true;");
   });
 });
@@ -407,6 +417,28 @@ describe("Capacitor PushNotifications shim (runtime behavior)", () => {
     await plugin.addListener("registrationError", (e: { error: string }) => errors.push(e));
     fireToken({ error: "Permission not granted" });
     expect(errors).toEqual([{ error: "Permission not granted" }]);
+  });
+
+  it("clears cached registration on error so later listeners are not replayed stale tokens", async () => {
+    const { plugin, fireToken, win } = installShim();
+    fireToken({ token: "stale-token" });
+    fireToken({ error: "Permission not granted" });
+
+    const received: Array<{ value: string }> = [];
+    await plugin.addListener("registration", (t: { value: string }) => received.push(t));
+    expect(received).toEqual([]);
+  });
+
+  it("does not replay a prior registration after the cache is cleared", async () => {
+    const { plugin, fireToken, win } = installShim();
+    fireToken({ token: "user-a-token" });
+
+    // eslint-disable-next-line no-new-func
+    new Function("window", buildClearPushRegistrationCache())(win);
+
+    const received: Array<{ value: string }> = [];
+    await plugin.addListener("registration", (t: { value: string }) => received.push(t));
+    expect(received).toEqual([]);
   });
 
   it("resolves checkPermissions via the native permission round-trip", async () => {
