@@ -1,6 +1,27 @@
 import { Platform } from "react-native";
+import Constants from "expo-constants";
 
-export const WEB_APP_URL = "https://chravel.app";
+const DEFAULT_WEB_APP_URL = "https://chravel.app";
+
+function resolveWebAppUrl(): string {
+  const configuredUrl = Constants.expoConfig?.extra?.webAppUrl;
+  const rawUrl =
+    typeof configuredUrl === "string" && configuredUrl.trim().length > 0
+      ? configuredUrl.trim()
+      : DEFAULT_WEB_APP_URL;
+
+  try {
+    const url = new URL(rawUrl);
+    if (url.protocol !== "https:") {
+      return DEFAULT_WEB_APP_URL;
+    }
+    return url.origin;
+  } catch {
+    return DEFAULT_WEB_APP_URL;
+  }
+}
+
+export const WEB_APP_URL = resolveWebAppUrl();
 
 export const IS_TABLET = Platform.OS === "ios" && Platform.isPad === true;
 

@@ -161,8 +161,6 @@ module.exports = ({ config }) => ({
                   googleServicesFile: "./google-services.json",
                   permissions: [
                     "CAMERA",
-                    "READ_EXTERNAL_STORAGE",
-                    "WRITE_EXTERNAL_STORAGE",
                     "ACCESS_FINE_LOCATION",
                     "RECORD_AUDIO",
                     "VIBRATE",
