@@ -157,7 +157,6 @@ module.exports = ({ config }) => ({
               backgroundColor: "#191817",
         },
             package: "com.chravel.app",
-                  versionCode: 1,
                   googleServicesFile: "./google-services.json",
                   permissions: [
                     "CAMERA",
