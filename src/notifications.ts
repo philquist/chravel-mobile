@@ -271,6 +271,55 @@ function getPayloadId(payload: Record<string, unknown>, ...keys: string[]): stri
   return null;
 }
 
+export type NotificationResponseAction =
+  | {
+      kind: "inline-action";
+      action: string;
+      userText: string | null;
+      type: string | null;
+      tripId: string | null;
+      threadId: string | null;
+    }
+  | { kind: "navigate"; path: string };
+
+/**
+ * Resolve a notification tap (or inline quick-action) into a WebView action.
+ * Returns null when the response should be ignored.
+ */
+export function resolveNotificationResponse(
+  response: Notifications.NotificationResponse,
+): NotificationResponseAction | null {
+  const data = response.notification.request.content.data as Record<string, unknown>;
+  const action = response.actionIdentifier;
+  const isInlineAction =
+    action && action !== Notifications.DEFAULT_ACTION_IDENTIFIER;
+
+  if (isInlineAction) {
+    const userText =
+      (response as Notifications.NotificationResponse & { userText?: string })
+        .userText ?? null;
+    const threadId =
+      (typeof data["thread-id"] === "string" ? (data["thread-id"] as string) : null) ??
+      (typeof data.threadId === "string" ? data.threadId : null);
+
+    if (action === "MARK_READ" || action === "REPLY") {
+      return {
+        kind: "inline-action",
+        action,
+        userText,
+        type: typeof data.type === "string" ? data.type : null,
+        tripId: typeof data.tripId === "string" ? data.tripId : null,
+        threadId,
+      };
+    }
+
+    // VIEW and other foreground actions fall through to deep-link navigation.
+  }
+
+  const path = getNotificationDeepLink(data);
+  return path ? { kind: "navigate", path } : null;
+}
+
 /**
  * Build a deep link path from a notification payload.
  * Used to navigate the WebView when a notification is tapped.

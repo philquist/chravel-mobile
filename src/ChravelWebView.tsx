@@ -33,7 +33,7 @@ import {
   registerForPushNotifications,
   checkPushPermission,
   requestPushPermission,
-  getNotificationDeepLink,
+  resolveNotificationResponse,
   clearNotificationBadge,
 } from "./notifications";
 import { triggerHaptic } from "./haptics";
@@ -198,51 +198,57 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
 
   // ── Push notification taps ──────────────────────────────────
 
+  const lastHandledNotificationIdRef = useRef<string | null>(null);
+
+  const handleNotificationResponse = useCallback(
+    (response: Notifications.NotificationResponse) => {
+      const notificationId = response.notification.request.identifier;
+      if (lastHandledNotificationIdRef.current === notificationId) {
+        return;
+      }
+
+      const resolved = resolveNotificationResponse(response);
+      if (!resolved) return;
+
+      lastHandledNotificationIdRef.current = notificationId;
+
+      if (resolved.kind === "inline-action") {
+        webViewRef.current?.injectJavaScript(
+          buildWebEvent("chravel:notification-action", {
+            action: resolved.action,
+            userText: resolved.userText,
+            type: resolved.type,
+            tripId: resolved.tripId,
+            threadId: resolved.threadId,
+          }),
+        );
+        return;
+      }
+
+      if (isReadyRef.current) {
+        handleIncomingPath(resolved.path);
+      } else {
+        initialUrlRef.current = resolved.path;
+      }
+    },
+    [handleIncomingPath],
+  );
+
   useEffect(() => {
+    // Cold-start taps are stored natively before JS listeners attach; read
+    // the launch response explicitly (expo-notifications contract).
+    const launchResponse = Notifications.getLastNotificationResponse();
+    if (launchResponse) {
+      handleNotificationResponse(launchResponse);
+      Notifications.clearLastNotificationResponse();
+    }
+
     const subscription = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        const data = response.notification.request.content.data as Record<
-          string,
-          unknown
-        >;
-        const action = response.actionIdentifier;
-        const isInlineAction =
-          action && action !== Notifications.DEFAULT_ACTION_IDENTIFIER;
-
-        if (isInlineAction) {
-          const userText =
-            (response as Notifications.NotificationResponse & { userText?: string })
-              .userText ?? null;
-          const threadId =
-            (typeof data["thread-id"] === "string" ? (data["thread-id"] as string) : null) ??
-            (typeof data.threadId === "string" ? (data.threadId as string) : null);
-          webViewRef.current?.injectJavaScript(
-            buildWebEvent("chravel:notification-action", {
-              action,
-              userText,
-              type: typeof data.type === "string" ? data.type : null,
-              tripId: typeof data.tripId === "string" ? data.tripId : null,
-              threadId,
-            }),
-          );
-          // Inline actions (Reply, Mark Read) are handled by the web app
-          // without navigating away from the user's current view.
-          if (action === "MARK_READ" || action === "REPLY") return;
-        }
-
-        const path = getNotificationDeepLink(data);
-        if (path) {
-          if (isReadyRef.current) {
-            handleIncomingPath(path);
-          } else {
-            initialUrlRef.current = path;
-          }
-        }
-      },
+      handleNotificationResponse,
     );
 
     return () => subscription.remove();
-  }, [handleIncomingPath]);
+  }, [handleNotificationResponse]);
 
   // ── App-icon badge clearing ─────────────────────────────────
   // The backend sets aps.badge on iOS pushes. Clear the badge (and dismiss

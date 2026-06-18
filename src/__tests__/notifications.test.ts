@@ -9,6 +9,7 @@ jest.mock("react-native", () => ({
 import {
   parseNotificationPayload,
   getNotificationDeepLink,
+  resolveNotificationResponse,
   getChannelForPushType,
   IOS_NOTIFICATION_CATEGORIES,
   registerForPushNotifications,
@@ -34,7 +35,10 @@ jest.mock("expo-notifications", () => ({
     PROVISIONAL: 3,
     EPHEMERAL: 4,
   },
+  DEFAULT_ACTION_IDENTIFIER: "expo.modules.notifications.actions.DEFAULT",
   addNotificationResponseReceivedListener: jest.fn(),
+  getLastNotificationResponse: jest.fn(),
+  clearLastNotificationResponse: jest.fn(),
 }));
 
 jest.mock("expo-device", () => ({
@@ -157,6 +161,65 @@ describe("getNotificationDeepLink", () => {
   });
   it("returns null for invalid payload", () => {
     expect(getNotificationDeepLink({ foo: "bar" })).toBeNull();
+  });
+});
+
+describe("resolveNotificationResponse", () => {
+  const makeResponse = (
+    data: Record<string, unknown>,
+    actionIdentifier = Notifications.DEFAULT_ACTION_IDENTIFIER,
+    userText?: string,
+  ) =>
+    ({
+      actionIdentifier,
+      userText,
+      notification: {
+        request: {
+          identifier: "notif-1",
+          content: { data },
+        },
+      },
+    }) as Notifications.NotificationResponse;
+
+  it("returns navigate action for a default tap on a chat message", () => {
+    expect(
+      resolveNotificationResponse(
+        makeResponse({ type: "chat_message", tripId: "t1", threadId: "th1" }),
+      ),
+    ).toEqual({
+      kind: "navigate",
+      path: "/trip/t1?tab=chat&thread=th1",
+    });
+  });
+
+  it("returns inline-action for REPLY without navigation", () => {
+    expect(
+      resolveNotificationResponse(
+        makeResponse(
+          { type: "chat_message", tripId: "t1", threadId: "th1" },
+          "REPLY",
+          "hello",
+        ),
+      ),
+    ).toEqual({
+      kind: "inline-action",
+      action: "REPLY",
+      userText: "hello",
+      type: "chat_message",
+      tripId: "t1",
+      threadId: "th1",
+    });
+  });
+
+  it("routes VIEW inline action to deep-link navigation", () => {
+    expect(
+      resolveNotificationResponse(
+        makeResponse({ type: "broadcast", tripId: "t1" }, "VIEW"),
+      ),
+    ).toEqual({
+      kind: "navigate",
+      path: "/trip/t1?tab=chat",
+    });
   });
 });
 
