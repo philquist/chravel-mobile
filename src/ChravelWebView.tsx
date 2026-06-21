@@ -492,7 +492,7 @@ ${buildWebEvent("chravel:push-unregistered", { success: true })}`,
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" translucent backgroundColor="transparent" />
+      <StatusBar style="light" />
 
       <WebView
         ref={webViewRef}
