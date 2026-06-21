@@ -34,6 +34,7 @@ import {
   checkPushPermission,
   requestPushPermission,
   resolveNotificationResponse,
+  consumeNotificationResponse,
   clearNotificationBadge,
 } from "./notifications";
 import { triggerHaptic } from "./haptics";
@@ -202,33 +203,31 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
 
   const handleNotificationResponse = useCallback(
     (response: Notifications.NotificationResponse) => {
-      const notificationId = response.notification.request.identifier;
-      if (lastHandledNotificationIdRef.current === notificationId) {
-        return;
-      }
+      const consumed = consumeNotificationResponse(
+        response,
+        lastHandledNotificationIdRef.current,
+      );
+      if (consumed.isDuplicate || !consumed.resolved) return;
 
-      const resolved = resolveNotificationResponse(response);
-      if (!resolved) return;
+      lastHandledNotificationIdRef.current = consumed.notificationId;
 
-      lastHandledNotificationIdRef.current = notificationId;
-
-      if (resolved.kind === "inline-action") {
+      if (consumed.resolved.kind === "inline-action") {
         webViewRef.current?.injectJavaScript(
           buildWebEvent("chravel:notification-action", {
-            action: resolved.action,
-            userText: resolved.userText,
-            type: resolved.type,
-            tripId: resolved.tripId,
-            threadId: resolved.threadId,
+            action: consumed.resolved.action,
+            userText: consumed.resolved.userText,
+            type: consumed.resolved.type,
+            tripId: consumed.resolved.tripId,
+            threadId: consumed.resolved.threadId,
           }),
         );
         return;
       }
 
       if (isReadyRef.current) {
-        handleIncomingPath(resolved.path);
+        handleIncomingPath(consumed.resolved.path);
       } else {
-        initialUrlRef.current = resolved.path;
+        initialUrlRef.current = consumed.resolved.path;
       }
     },
     [handleIncomingPath],
@@ -240,7 +239,6 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
     const launchResponse = Notifications.getLastNotificationResponse();
     if (launchResponse) {
       handleNotificationResponse(launchResponse);
-      Notifications.clearLastNotificationResponse();
     }
 
     const subscription = Notifications.addNotificationResponseReceivedListener(

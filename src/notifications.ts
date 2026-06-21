@@ -320,6 +320,30 @@ export function resolveNotificationResponse(
   return path ? { kind: "navigate", path } : null;
 }
 
+export interface ConsumedNotificationResponse {
+  notificationId: string;
+  resolved: NotificationResponseAction | null;
+  isDuplicate: boolean;
+}
+
+/**
+ * Resolve a notification tap and clear the native last-response store.
+ * Callers should skip handling when `isDuplicate` is true or `resolved` is null.
+ */
+export function consumeNotificationResponse(
+  response: Notifications.NotificationResponse,
+  lastHandledNotificationId: string | null,
+): ConsumedNotificationResponse {
+  const notificationId = response.notification.request.identifier;
+  if (lastHandledNotificationId === notificationId) {
+    return { notificationId, resolved: null, isDuplicate: true };
+  }
+
+  const resolved = resolveNotificationResponse(response);
+  Notifications.clearLastNotificationResponse();
+  return { notificationId, resolved, isDuplicate: false };
+}
+
 /**
  * Build a deep link path from a notification payload.
  * Used to navigate the WebView when a notification is tapped.
