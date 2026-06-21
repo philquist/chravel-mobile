@@ -10,6 +10,7 @@ import {
   parseNotificationPayload,
   getNotificationDeepLink,
   resolveNotificationResponse,
+  consumeNotificationResponse,
   getChannelForPushType,
   IOS_NOTIFICATION_CATEGORIES,
   registerForPushNotifications,
@@ -220,6 +221,56 @@ describe("resolveNotificationResponse", () => {
       kind: "navigate",
       path: "/trip/t1?tab=chat",
     });
+  });
+});
+
+describe("consumeNotificationResponse", () => {
+  const makeResponse = (
+    data: Record<string, unknown>,
+    identifier = "notif-1",
+  ) =>
+    ({
+      actionIdentifier: Notifications.DEFAULT_ACTION_IDENTIFIER,
+      notification: {
+        request: {
+          identifier,
+          content: { data },
+        },
+      },
+    }) as Notifications.NotificationResponse;
+
+  beforeEach(() => {
+    (Notifications.clearLastNotificationResponse as jest.Mock).mockClear();
+  });
+
+  it("clears the native last-response store after handling a tap", () => {
+    const result = consumeNotificationResponse(
+      makeResponse({ type: "chat_message", tripId: "t1", threadId: "th1" }),
+      null,
+    );
+
+    expect(result.isDuplicate).toBe(false);
+    expect(result.resolved).toEqual({
+      kind: "navigate",
+      path: "/trip/t1?tab=chat&thread=th1",
+    });
+    expect(Notifications.clearLastNotificationResponse).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears unparseable responses so icon cold starts do not replay them", () => {
+    const result = consumeNotificationResponse(makeResponse({ foo: "bar" }), null);
+
+    expect(result.resolved).toBeNull();
+    expect(Notifications.clearLastNotificationResponse).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips duplicate notification ids without clearing again", () => {
+    const response = makeResponse({ type: "chat_message", tripId: "t1" });
+    const first = consumeNotificationResponse(response, null);
+    const second = consumeNotificationResponse(response, first.notificationId);
+
+    expect(second.isDuplicate).toBe(true);
+    expect(Notifications.clearLastNotificationResponse).toHaveBeenCalledTimes(1);
   });
 });
 
