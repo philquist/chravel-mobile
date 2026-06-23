@@ -46,6 +46,7 @@ import {
   parseDeepLinkUrl,
   isAuthScreenUrl,
   isNativeAuthReturnPath,
+  preferExistingDeferredPath,
   NATIVE_OAUTH_CALLBACK_URL,
   rewriteOAuthUrlForNativeCallback,
 } from "./deepLinking";
@@ -183,7 +184,10 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
       if (isReadyRef.current) {
         handleIncomingPath(path);
       } else {
-        initialUrlRef.current = path;
+        initialUrlRef.current = preferExistingDeferredPath(
+          initialUrlRef.current,
+          path,
+        );
       }
     });
 

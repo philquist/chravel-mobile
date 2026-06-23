@@ -65,15 +65,41 @@ export const NATIVE_OAUTH_CALLBACK_URL = "chravel://auth-callback";
 
 /**
  * Auth providers/callback handlers may return to multiple auth endpoints.
- * Treat all of these as valid native auth return paths.
+ * Treat only session-bearing paths as native auth returns — bare `/auth` is
+ * the sign-in surface, not an OAuth callback.
  */
 export function isNativeAuthReturnPath(path: string): boolean {
-  return (
-    path.startsWith("/auth-callback") ||
-    path === "/auth" ||
-    path.startsWith("/auth/") ||
-    path.startsWith("/auth#")
-  );
+  if (path.startsWith("/auth-callback")) return true;
+  if (path.startsWith("/auth/")) return true;
+  if (path.startsWith("/auth#")) return true;
+
+  if (path.startsWith("/auth?")) {
+    try {
+      const parsed = new URL(path, WEB_APP_URL);
+      return (
+        parsed.searchParams.has("code") ||
+        parsed.searchParams.has("access_token") ||
+        parsed.searchParams.has("error")
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * When notification cold-start routing and Linking.getInitialURL() both fire,
+ * keep the path already captured synchronously (notification payloads include
+ * thread/poll/task query params that a generic click URL may omit).
+ */
+export function preferExistingDeferredPath(
+  existing: string | null,
+  incoming: string | null,
+): string | null {
+  if (existing) return existing;
+  return incoming;
 }
 
 /**
