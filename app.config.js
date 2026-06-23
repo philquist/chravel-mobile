@@ -207,14 +207,29 @@ module.exports = ({ config }) => ({
               ],
           },
             plugins: [
+              // Runs first so its Info.plist mod runs LAST (config-plugins runs
+              // mods in reverse registration order): strips the unused "audio"
+              // UIBackgroundMode so we never regress App Store Guideline 2.5.4.
+              "./plugins/withNoAudioBackgroundMode",
               "expo-notifications",
               [
                 "expo-audio",
           {
                   microphonePermission: "ChravelApp needs microphone access for voice conversations with AI Concierge",
+                  // Chravel only records / plays audio in the FOREGROUND (voice
+                  // notes + AI Concierge TTS). Disabling these keeps expo-audio
+                  // from adding the "audio" UIBackgroundMode (Guideline 2.5.4)
+                  // and the matching Android foreground-service permissions.
+                  enableBackgroundRecording: false,
+                  enableBackgroundPlayback: false,
                     },
               ],
-              "@mykin-ai/expo-audio-stream",
+              // NOTE: "@mykin-ai/expo-audio-stream" is intentionally NOT listed
+              // as a config plugin. Its plugin unconditionally injects the
+              // "audio" UIBackgroundMode (no opt-out), which Apple rejects under
+              // Guideline 2.5.4. The native module still autolinks from the
+              // dependency (expo-module.config.json) for Android PCM capture, so
+              // voice capture is unaffected; RECORD_AUDIO is declared below.
               [
                 "expo-splash-screen",
                 {

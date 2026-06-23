@@ -56,6 +56,7 @@ This is the **native mobile shell only** — an Expo/React Native app (~1,500 li
 | `src/audio/utils.ts` | WAV header generation, base64 conversion, RMS calculation |
 | `src/audio/constants.ts` | Audio sample rates and intervals |
 | `app.config.js` | Expo config: permissions, deep links, privacy manifest, entitlements |
+| `plugins/withNoAudioBackgroundMode.js` | Local config plugin — strips the unused `audio` UIBackgroundMode from iOS Info.plist (App Store Guideline 2.5.4; voice is foreground-only) |
 | `eas.json` | EAS build profiles (dev, preview, production) + submit config |
 | `store.config.json` | App Store Connect listing (title, subtitle, description, keywords, review info) — push with `npx eas-cli metadata:push` |
 | `fastlane/metadata/android/en-US/` | Play Store listing copy (title, short/full description) — canonical source; paste into Play Console manually (EAS Metadata does not support Google Play) |

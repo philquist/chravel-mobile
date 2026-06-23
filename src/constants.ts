@@ -25,6 +25,24 @@ export const WEB_APP_URL = resolveWebAppUrl();
 
 export const IS_TABLET = Platform.OS === "ios" && Platform.isPad === true;
 
+/**
+ * True on iOS 17.4+, where ASWebAuthenticationSession supports HTTPS callbacks
+ * bound to Associated Domains (webcredentials:chravel.app). On those versions
+ * we hand the OAuth flow an https://chravel.app/auth-callback redirect so Apple
+ * Sign In returns into the app (fixes the iPad "stranded in Safari" rejection,
+ * App Store Guideline 2.1(a)). Android and older iOS keep the chravel:// scheme.
+ */
+export function supportsHttpsAuthCallback(): boolean {
+  if (Platform.OS !== "ios") return false;
+  // Platform.Version is the iOS system version string (e.g. "17.4", "26.5").
+  const [majorRaw, minorRaw = "0"] = String(Platform.Version).split(".");
+  const major = parseInt(majorRaw, 10);
+  const minor = parseInt(minorRaw, 10);
+  if (Number.isNaN(major)) return false;
+  if (major !== 17) return major > 17;
+  return minor >= 4;
+}
+
 /** Scale a dimension up for tablet screens (1.3x on iPad, 1x elsewhere). */
 export function tabletScale(value: number): number {
   return IS_TABLET ? Math.round(value * 1.3) : value;

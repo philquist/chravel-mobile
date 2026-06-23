@@ -56,6 +56,34 @@
 - [ ] Apple OAuth secret key expires every 6 months — regenerate before expiry (generated 2026-03-26)
 - [ ] Test Apple Sign In on mobile app
 
+### App Store v2.0 build 51 rejection fixes (Submission 31f5c251-…)
+- [x] **Guideline 2.5.4** — removed the unused `audio` UIBackgroundMode. It was injected
+      by the `expo-audio` plugin (`enableBackgroundPlayback` default true → now `false`) and by
+      `@mykin-ai/expo-audio-stream` (unconditional, no opt-out → dropped from the `plugins` array;
+      its native module still autolinks for Android PCM capture). `plugins/withNoAudioBackgroundMode.js`
+      is a belt-and-suspenders guard. Verified via `expo prebuild -p ios`: generated Info.plist has
+      no `UIBackgroundModes` key. Voice is foreground-only (notes + Concierge TTS), so no bg mode is needed.
+- [x] **Guideline 2.1(a)** — Apple Sign In now completes on iPad. On iOS 17.4+ the OAuth flow uses an
+      `https://chravel.app/auth-callback` ASWebAuthenticationSession callback bound to the
+      `webcredentials:chravel.app` Associated Domain, so the redirect returns INTO the app's auth
+      session (and then the main WebView runs Supabase `detectSessionInUrl`) instead of opening
+      external Safari. Android / iOS < 17.4 keep the `chravel://auth-callback` custom scheme.
+- [ ] **Verify on physical iPad Air (M3) / iPadOS 26.5**: cold-launch the EAS build → "Continue with
+      Apple" → Face/Touch ID → land on the post-auth home route inside the app (not stranded in Safari).
+- [ ] **Provisioning**: confirm App ID `com.chravel.app` has "Associated Domains" + "Sign in with Apple"
+      capabilities and the production profile includes them (`eas credentials`). Entitlements file
+      (verified via prebuild) already declares `applesignin` + `applinks/webcredentials:chravel.app`.
+- [ ] Build number auto-increments on the production build (`eas.json`: `appVersionSource: remote` +
+      `autoIncrement: buildNumber`) — no manual bump needed. Resubmit: `eas build -p ios --profile
+      production` then `eas submit -p ios --profile production` (runs via CI on merge to main).
+
+### Optional (recommended) — native Sign in with Apple (needs coordinated chravel-web change)
+- [ ] Add `expo-apple-authentication`, expose `window.ChravelNative.signInWithApple()` returning
+      `{ identityToken, nonce }`, and have chravel-web call
+      `supabase.auth.signInWithIdToken({ provider: 'apple', token, nonce })` to skip the browser
+      round-trip entirely. Deferred: requires a coordinated web change and is not needed now that the
+      https-callback OAuth path resolves the iPad rejection.
+
 ### Apple token revocation on account deletion (App Store 5.1.1(v))
 Backend lives in the shared "Chravel" Supabase project (`jmjiyekmxwsxkfnqwyaa`) / ChravelApp.
 Canonical source committed here: `coordination/chravel-web/` (sync into ChravelApp to avoid drift).

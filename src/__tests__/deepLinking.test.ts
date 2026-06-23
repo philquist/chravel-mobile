@@ -26,6 +26,7 @@ import {
   buildNativeAuthLaunchUrl,
   buildCacheBustParam,
   NATIVE_OAUTH_CALLBACK_URL,
+  HTTPS_OAUTH_CALLBACK_URL,
   rewriteOAuthUrlForNativeCallback,
   isNativeAuthReturnPath,
 } from "../deepLinking";
@@ -206,9 +207,26 @@ describe("rewriteOAuthUrlForNativeCallback", () => {
     );
   });
 
+  it("rewrites redirect_to to the https callback when one is supplied (iOS 17.4+)", () => {
+    const url = "https://abc.supabase.co/auth/v1/authorize?provider=apple&redirect_to=https%3A%2F%2Fwww.chravel.app%2Fauth-callback";
+    const rewritten = rewriteOAuthUrlForNativeCallback(url, HTTPS_OAUTH_CALLBACK_URL);
+    expect(rewritten).toContain(
+      `redirect_to=${encodeURIComponent(HTTPS_OAUTH_CALLBACK_URL)}`
+    );
+    // Normalizes www → chravel.app so the .https(host:path:) callback matches.
+    expect(new URL(rewritten).searchParams.get("redirect_to")).toBe(
+      "https://chravel.app/auth-callback"
+    );
+  });
+
+  it("exposes the https callback as the canonical chravel.app/auth-callback url", () => {
+    expect(HTTPS_OAUTH_CALLBACK_URL).toBe("https://chravel.app/auth-callback");
+  });
+
   it("does not mutate urls with no redirect_to", () => {
     const url = "https://appleid.apple.com/auth/authorize?foo=bar";
     expect(rewriteOAuthUrlForNativeCallback(url)).toBe(url);
+    expect(rewriteOAuthUrlForNativeCallback(url, HTTPS_OAUTH_CALLBACK_URL)).toBe(url);
   });
 
   it("fails open on malformed urls", () => {
