@@ -20,6 +20,7 @@ import {
   NATIVE_USER_AGENT_SUFFIX,
   COLORS,
   IS_TABLET,
+  supportsHttpsAuthCallback,
 } from "./constants";
 import {
   buildNativeBootstrapJS,
@@ -47,6 +48,7 @@ import {
   isAuthScreenUrl,
   isNativeAuthReturnPath,
   NATIVE_OAUTH_CALLBACK_URL,
+  HTTPS_OAUTH_CALLBACK_URL,
   rewriteOAuthUrlForNativeCallback,
 } from "./deepLinking";
 import {
@@ -157,17 +159,30 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
 
   /**
    * Open an IdP authorize URL via the OS auth session so Supabase can redirect
-   * back to chravel://auth-callback and the main WebView (which shares storage
-   * with chravel.app) can run detectSessionInUrl.
+   * the OAuth result back into the app and the MAIN WebView (which shares
+   * cookie/localStorage with chravel.app) can run Supabase detectSessionInUrl.
+   *
+   * iOS 17.4+ uses an https://chravel.app/auth-callback callback bound to the
+   * Associated Domain (webcredentials:chravel.app); ASWebAuthenticationSession
+   * intercepts that redirect and returns it here instead of opening external
+   * Safari — which is what lets Apple Sign In complete on iPad (Guideline
+   * 2.1(a)). Android and older iOS fall back to the chravel:// custom scheme.
    */
   const openOAuthAuthSession = useCallback(
     async (url: string) => {
-      const nativeAuthUrl = rewriteOAuthUrlForNativeCallback(url);
+      const callbackUrl = supportsHttpsAuthCallback()
+        ? HTTPS_OAUTH_CALLBACK_URL
+        : NATIVE_OAUTH_CALLBACK_URL;
+      const nativeAuthUrl = rewriteOAuthUrlForNativeCallback(url, callbackUrl);
       const result = await WebBrowser.openAuthSessionAsync(
         nativeAuthUrl,
-        NATIVE_OAUTH_CALLBACK_URL,
+        callbackUrl,
       );
       if (result.type === "success" && result.url) {
+        // result.url is the callback carrying the #access_token… hash. Navigate
+        // the SAME WebView to it (parseDeepLinkUrl keeps the hash + restricts to
+        // chravel.app) so detectSessionInUrl hydrates the session in shared
+        // storage. We never open the callback in a secondary WebView or Safari.
         const nextPath = parseDeepLinkUrl(result.url);
         if (nextPath && isNativeAuthReturnPath(nextPath)) {
           handleIncomingPath(nextPath);

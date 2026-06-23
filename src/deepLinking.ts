@@ -60,8 +60,19 @@ export function parseDeepLinkUrl(url: string): string | null {
 /** Single source of truth for native shell auth bootstrap route. */
 export const AUTH_LAUNCH_PATH = "/auth";
 
-/** Canonical callback URI that must return control to the native app shell. */
+/** Canonical custom-scheme callback URI (Android + iOS < 17.4 fallback). */
 export const NATIVE_OAUTH_CALLBACK_URL = "chravel://auth-callback";
+
+/**
+ * HTTPS universal-link callback used on iOS 17.4+. ASWebAuthenticationSession
+ * can complete on an https callback bound to an Associated Domain
+ * (webcredentials:chravel.app), so the OAuth redirect returns INTO the app's
+ * auth session instead of opening external Safari. This is what lets Apple Sign
+ * In finish on iPad (App Store Guideline 2.1(a)) rather than stranding the user.
+ * Host/path here must match the Associated Domain and the web app's
+ * redirect_to so ASWebAuthenticationSession's .https(host:path:) callback fires.
+ */
+export const HTTPS_OAUTH_CALLBACK_URL = "https://chravel.app/auth-callback";
 
 /**
  * Auth providers/callback handlers may return to multiple auth endpoints.
@@ -77,16 +88,23 @@ export function isNativeAuthReturnPath(path: string): boolean {
 }
 
 /**
- * Rewrites Supabase/IdP authorize URLs so native OAuth callbacks resolve to
- * the app scheme instead of a web-only callback page.
+ * Rewrites Supabase/IdP authorize URLs so the OAuth redirect returns into the
+ * native app's auth session. The target callback differs by platform/OS:
+ *   - iOS 17.4+ → HTTPS_OAUTH_CALLBACK_URL (Associated-Domains https callback)
+ *   - Android / older iOS → NATIVE_OAUTH_CALLBACK_URL (chravel:// custom scheme)
+ * Forcing redirect_to to exactly the callback URL also normalizes the host
+ * (e.g. www.chravel.app → chravel.app) so the https callback host/path matches.
  */
-export function rewriteOAuthUrlForNativeCallback(url: string): string {
+export function rewriteOAuthUrlForNativeCallback(
+  url: string,
+  callbackUrl: string = NATIVE_OAUTH_CALLBACK_URL,
+): string {
   try {
     const parsed = new URL(url);
     if (!parsed.searchParams.has("redirect_to")) {
       return url;
     }
-    parsed.searchParams.set("redirect_to", NATIVE_OAUTH_CALLBACK_URL);
+    parsed.searchParams.set("redirect_to", callbackUrl);
     return parsed.toString();
   } catch {
     return url;
