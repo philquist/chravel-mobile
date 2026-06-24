@@ -20,7 +20,7 @@ module.exports = ({ config }) => ({
     ...config,
         name: "ChravelApp",
         slug: "chravel-mobile",
-        owner: "meechyourgoals",
+        owner: "play-store-project",
         version: "1.0.0",
         orientation: "default",
         icon: "./assets/icon.png",
