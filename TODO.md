@@ -68,6 +68,8 @@
       `webcredentials:chravel.app` Associated Domain, so the redirect returns INTO the app's auth
       session (and then the main WebView runs Supabase `detectSessionInUrl`) instead of opening
       external Safari. Android / iOS < 17.4 keep the `chravel://auth-callback` custom scheme.
+      **⚠️ SUPERSEDED in build 53 (see below): the https callback was unreliable on iPhone/iOS 26.5;
+      all iOS now uses the `chravel://` custom scheme.**
 - [ ] **Verify on physical iPad Air (M3) / iPadOS 26.5**: cold-launch the EAS build → "Continue with
       Apple" → Face/Touch ID → land on the post-auth home route inside the app (not stranded in Safari).
 - [ ] **Provisioning**: confirm App ID `com.chravel.app` has "Associated Domains" + "Sign in with Apple"
@@ -77,12 +79,42 @@
       `autoIncrement: buildNumber`) — no manual bump needed. Resubmit: `eas build -p ios --profile
       production` then `eas submit -p ios --profile production` (runs via CI on merge to main).
 
-### Optional (recommended) — native Sign in with Apple (needs coordinated chravel-web change)
-- [ ] Add `expo-apple-authentication`, expose `window.ChravelNative.signInWithApple()` returning
-      `{ identityToken, nonce }`, and have chravel-web call
-      `supabase.auth.signInWithIdToken({ provider: 'apple', token, nonce })` to skip the browser
-      round-trip entirely. Deferred: requires a coordinated web change and is not needed now that the
-      https-callback OAuth path resolves the iPad rejection.
+### App Store v2.0 build 53 rejection fixes (Submission 31f5c251-…, reviewed 2026-06-24)
+- [x] **Guideline 2.1(a)** — "back to login after sign in with Apple" (iPhone 17 Pro Max / iOS 26.5).
+      Root cause: the build-51 https-callback fix above was unreliable — ASWebAuthenticationSession did
+      not consistently return the `https://chravel.app/auth-callback` redirect into the app, so the
+      session never reached the main WebView and the user bounced back to /auth.
+      Fix: `openOAuthAuthSession` (`ChravelWebView.tsx`) now ALWAYS uses the `chravel://auth-callback`
+      custom-scheme callback on every platform / iOS version. ASWebAuthenticationSession (iOS) and
+      Custom Tabs (Android) capture a custom-scheme redirect natively and hand it back into the app; the
+      main WebView then runs Supabase's PKCE exchange at `/auth-callback`. Removed the now-dead
+      `supportsHttpsAuthCallback()` / `HTTPS_OAUTH_CALLBACK_URL`. This keeps the existing Supabase OAuth
+      flow, so the Apple `provider_refresh_token` capture for account-deletion revocation (5.1.1(v),
+      below) is UNAFFECTED.
+- [x] **Guideline 3.1.1** — external (non-IAP) purchase paths. `src/webViewRequestFilter.ts`: on iOS,
+      top-frame navigations to `checkout.stripe.com` / `buy.stripe.com` are blocked outright (not
+      steered externally), and the `browser:open` bridge handler refuses the same hosts via
+      `isBlockedPurchaseUrl()`. RevenueCat IAP stays the only iOS purchase path. (Primary fix is the
+      chravel-web button gating; this is the native belt-and-suspenders.)
+- [ ] **DEPENDS ON chravel-web (Lovable)**: PKCE (`flowType: 'pkce'`) + a `/auth-callback` page that runs
+      `exchangeCodeForSession` and never silently bounces to login. The native callback now lands
+      reliably, but the web side must complete the session exchange. Also hide/disable the external
+      Stripe checkout buttons on iOS (the 3.1.1 primary fix).
+- [ ] **Verify on a physical iPhone (iOS 26+)**: cold-launch → "Continue with Apple" → Face/Touch ID →
+      land on the post-auth home route (not /auth). Re-test Google OAuth (same chravel:// path). Confirm
+      no external Stripe checkout opens on the iOS billing screen.
+- [ ] Confirm Supabase Auth → URL Configuration allows `chravel://auth-callback` (see checklist above) —
+      required for the custom-scheme redirect to be accepted.
+- [ ] Build number auto-increments (`eas.json`: remote versioning + `autoIncrement: buildNumber`) — no
+      manual bump. CI builds + submits on merge to main.
+
+### Considered but NOT done — native Sign in with Apple (`expo-apple-authentication`)
+- [ ] Evaluated for build 53 and intentionally deferred. Native ASAuthorization + chravel-web
+      `supabase.auth.signInWithIdToken` would skip the browser entirely, BUT it does not yield a Supabase
+      `provider_refresh_token`, which would break the Apple token-revocation-on-account-deletion flow
+      (5.1.1(v), below) that captures that token via `store-apple-token`. The `chravel://` callback
+      hardening fixes 2.1(a) without that regression and needs no coordinated web change. Revisit only if
+      Apple-token capture also moves to a server-side authorization-code exchange.
 
 ### Apple token revocation on account deletion (App Store 5.1.1(v))
 Backend lives in the shared "Chravel" Supabase project (`jmjiyekmxwsxkfnqwyaa`) / ChravelApp.

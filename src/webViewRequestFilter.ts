@@ -9,6 +9,39 @@ const ALLOWED_HOSTS = [
   "maps.google.com",
 ];
 
+/**
+ * External hosted-checkout surfaces that must NEVER render on iOS. App Store
+ * Guideline 3.1.1 requires digital subscriptions to be sold via In-App Purchase
+ * (RevenueCat here), and steering users to an external payment page — even in an
+ * in-app browser sheet — is itself disallowed. The web app gates these buttons
+ * on iOS too; this is the native defense-in-depth so no Stripe purchase page can
+ * appear regardless of the web state. NOT applied on Android (Google Play policy
+ * differs and the web gating is iOS-only). `checkout.stripe.com` is Stripe
+ * Checkout Sessions; `buy.stripe.com` is Stripe Payment Links — both are
+ * purchase-only surfaces, so blocking them can't break non-payment Stripe use
+ * (Elements/js.stripe.com card fields load in subframes and are unaffected).
+ */
+const IOS_BLOCKED_PURCHASE_HOSTS = ["checkout.stripe.com", "buy.stripe.com"];
+
+/**
+ * True when `url` is an external digital-purchase surface that must be blocked
+ * on this platform (iOS only — Guideline 3.1.1). Used both by the navigation
+ * policy below and by the `browser:open` bridge handler so a
+ * `Capacitor.Plugins.Browser.open(stripeUrl)` call can't escape the guard.
+ */
+export function isBlockedPurchaseUrl(url: string, platformOS: string): boolean {
+  if (platformOS !== "ios") return false;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") return false;
+    return IOS_BLOCKED_PURCHASE_HOSTS.some((h) =>
+      hostnameMatchesAllowedHost(parsed.hostname, h),
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** Exact host or a subdomain of `allowedHost` (rejects look-alikes like evilsupabase.co). */
 function hostnameMatchesAllowedHost(hostname: string, allowedHost: string): boolean {
   if (hostname === allowedHost) return true;
@@ -105,6 +138,14 @@ export function evaluateWebViewRequestPolicy({
       openInAppBrowser: platformOS === "ios" || platformOS === "android",
       useAuthSession: platformOS === "ios" || platformOS === "android",
     };
+  }
+
+  if (isBlockedPurchaseUrl(url, platformOS)) {
+    // iOS: block outright — do not load in the WebView and do not open
+    // externally (Guideline 3.1.1: subscriptions must use IAP, and steering to
+    // external payment is disallowed). No externalUrlToOpen → the navigation is
+    // simply refused and the user stays on the current page.
+    return { allowInWebView: false };
   }
 
   try {

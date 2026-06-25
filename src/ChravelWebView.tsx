@@ -20,7 +20,6 @@ import {
   NATIVE_USER_AGENT_SUFFIX,
   COLORS,
   IS_TABLET,
-  supportsHttpsAuthCallback,
 } from "./constants";
 import {
   buildNativeBootstrapJS,
@@ -48,7 +47,6 @@ import {
   isAuthScreenUrl,
   isNativeAuthReturnPath,
   NATIVE_OAUTH_CALLBACK_URL,
-  HTTPS_OAUTH_CALLBACK_URL,
   rewriteOAuthUrlForNativeCallback,
 } from "./deepLinking";
 import {
@@ -62,6 +60,7 @@ import { VoiceBridge, type VoiceBridgeMessage } from "./voiceBridge";
 import {
   evaluateWebViewRequestPolicy,
   isOAuthAuthorizeUrl,
+  isBlockedPurchaseUrl,
 } from "./webViewRequestFilter";
 import { evaluateReadyDecision } from "./authRouting";
 
@@ -160,28 +159,29 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
   /**
    * Open an IdP authorize URL via the OS auth session so Supabase can redirect
    * the OAuth result back into the app and the MAIN WebView (which shares
-   * cookie/localStorage with chravel.app) can run Supabase detectSessionInUrl.
+   * cookie/localStorage with chravel.app) can run Supabase's PKCE code exchange
+   * / detectSessionInUrl.
    *
-   * iOS 17.4+ uses an https://chravel.app/auth-callback callback bound to the
-   * Associated Domain (webcredentials:chravel.app); ASWebAuthenticationSession
-   * intercepts that redirect and returns it here instead of opening external
-   * Safari — which is what lets Apple Sign In complete on iPad (Guideline
-   * 2.1(a)). Android and older iOS fall back to the chravel:// custom scheme.
+   * Always uses the chravel:// custom-scheme callback. ASWebAuthenticationSession
+   * (iOS) and Custom Tabs (Android) natively capture a custom-scheme redirect and
+   * hand it back here WITHOUT opening external Safari. The iOS 17.4+ https
+   * callback (bound to webcredentials:chravel.app) was unreliable in the field —
+   * the redirect could fail to return into the app and bounce the user back to
+   * /auth (App Store Guideline 2.1(a)) — so we no longer use it.
    */
   const openOAuthAuthSession = useCallback(
     async (url: string) => {
-      const callbackUrl = supportsHttpsAuthCallback()
-        ? HTTPS_OAUTH_CALLBACK_URL
-        : NATIVE_OAUTH_CALLBACK_URL;
+      const callbackUrl = NATIVE_OAUTH_CALLBACK_URL;
       const nativeAuthUrl = rewriteOAuthUrlForNativeCallback(url, callbackUrl);
       const result = await WebBrowser.openAuthSessionAsync(
         nativeAuthUrl,
         callbackUrl,
       );
       if (result.type === "success" && result.url) {
-        // result.url is the callback carrying the #access_token… hash. Navigate
-        // the SAME WebView to it (parseDeepLinkUrl keeps the hash + restricts to
-        // chravel.app) so detectSessionInUrl hydrates the session in shared
+        // result.url is the chravel://auth-callback redirect carrying the PKCE
+        // ?code= (or legacy #access_token). Navigate the SAME WebView to it
+        // (parseDeepLinkUrl preserves the query + hash and restricts to
+        // chravel.app) so the web app exchanges it for a session in shared
         // storage. We never open the callback in a secondary WebView or Safari.
         const nextPath = parseDeepLinkUrl(result.url);
         if (nextPath && isNativeAuthReturnPath(nextPath)) {
@@ -349,6 +349,10 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
           // captured and the main WebView can hydrate the Supabase session.
           if (isOAuthAuthorizeUrl(message.url)) {
             await openOAuthAuthSession(message.url);
+          } else if (isBlockedPurchaseUrl(message.url, Platform.OS)) {
+            // iOS: refuse to open an external checkout surface (Guideline
+            // 3.1.1). Digital subscriptions must go through RevenueCat IAP.
+            // Intentionally a no-op — do not steer to external payment.
           } else {
             await WebBrowser.openBrowserAsync(message.url, {
               presentationStyle: WebBrowser.WebBrowserPresentationStyle.POPOVER,
