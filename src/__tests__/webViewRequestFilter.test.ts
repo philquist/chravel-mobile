@@ -1,6 +1,7 @@
 import {
   evaluateWebViewRequestPolicy,
   isOAuthAuthorizeUrl,
+  isBlockedPurchaseUrl,
 } from "../webViewRequestFilter";
 
 describe("evaluateWebViewRequestPolicy", () => {
@@ -152,6 +153,71 @@ describe("evaluateWebViewRequestPolicy", () => {
     expect(result.allowInWebView).toBe(false);
     expect(result.externalUrlToOpen).toBe(oauthUrl);
     expect(result.openInAppBrowser).toBe(false);
+  });
+
+  it("blocks Stripe hosted checkout outright on iOS (Guideline 3.1.1)", () => {
+    const result = evaluateWebViewRequestPolicy({
+      url: "https://checkout.stripe.com/c/pay/cs_test_123",
+      platformOS: "ios",
+      isTopFrame: true,
+    });
+
+    expect(result.allowInWebView).toBe(false);
+    // Blocked, not steered: no external open either (steering is also disallowed).
+    expect(result.externalUrlToOpen).toBeUndefined();
+    expect(result.openInAppBrowser).toBeUndefined();
+  });
+
+  it("blocks Stripe payment links on iOS", () => {
+    const result = evaluateWebViewRequestPolicy({
+      url: "https://buy.stripe.com/test_abc123",
+      platformOS: "ios",
+      isTopFrame: true,
+    });
+
+    expect(result.allowInWebView).toBe(false);
+    expect(result.externalUrlToOpen).toBeUndefined();
+  });
+
+  it("still allows Stripe hosted checkout in the WebView on Android", () => {
+    const result = evaluateWebViewRequestPolicy({
+      url: "https://checkout.stripe.com/c/pay/cs_test_123",
+      platformOS: "android",
+      isTopFrame: true,
+    });
+
+    expect(result.allowInWebView).toBe(true);
+  });
+
+  it("does not block Stripe.js (Elements) on iOS — only the checkout surfaces", () => {
+    const result = evaluateWebViewRequestPolicy({
+      url: "https://js.stripe.com/v3/",
+      platformOS: "ios",
+      isTopFrame: true,
+    });
+
+    expect(result.allowInWebView).toBe(true);
+  });
+});
+
+describe("isBlockedPurchaseUrl", () => {
+  it("flags Stripe checkout / payment-link hosts on iOS only", () => {
+    expect(isBlockedPurchaseUrl("https://checkout.stripe.com/c/pay/x", "ios")).toBe(true);
+    expect(isBlockedPurchaseUrl("https://buy.stripe.com/x", "ios")).toBe(true);
+    expect(isBlockedPurchaseUrl("https://checkout.stripe.com/c/pay/x", "android")).toBe(false);
+    expect(isBlockedPurchaseUrl("https://buy.stripe.com/x", "web")).toBe(false);
+  });
+
+  it("does not flag non-purchase Stripe or unrelated hosts", () => {
+    expect(isBlockedPurchaseUrl("https://js.stripe.com/v3/", "ios")).toBe(false);
+    expect(isBlockedPurchaseUrl("https://api.stripe.com/v1/x", "ios")).toBe(false);
+    expect(isBlockedPurchaseUrl("https://chravel.app/settings/billing", "ios")).toBe(false);
+  });
+
+  it("rejects look-alike hosts and non-https schemes", () => {
+    expect(isBlockedPurchaseUrl("https://checkout.stripe.com.evil.com/x", "ios")).toBe(false);
+    expect(isBlockedPurchaseUrl("http://checkout.stripe.com/x", "ios")).toBe(false);
+    expect(isBlockedPurchaseUrl("not a url", "ios")).toBe(false);
   });
 });
 
