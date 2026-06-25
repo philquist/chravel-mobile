@@ -20,7 +20,7 @@ module.exports = ({ config }) => ({
     ...config,
         name: "ChravelApp",
         slug: "chravel-mobile",
-        owner: "play-store-project",
+        owner: "meechyourgoals",
         version: "1.0.0",
         orientation: "default",
         icon: "./assets/icon.png",
@@ -264,7 +264,7 @@ module.exports = ({ config }) => ({
               ],
             ],
             extra: {
-    eas: { projectId: "94c4e798-1f84-4e0c-9011-d18fe558f818" },
+    eas: { projectId: "a543c88d-bece-4433-9aa2-d0e842a5c927" },
           webAppUrl: process.env.EXPO_PUBLIC_WEB_APP_URL || "https://chravel.app",
                 revenueCatIosApiKey: process.env.REVENUECAT_IOS_API_KEY || "",
                 revenueCatAndroidApiKey: process.env.REVENUECAT_ANDROID_API_KEY || "",
