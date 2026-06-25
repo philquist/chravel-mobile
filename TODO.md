@@ -30,6 +30,16 @@
 - [ ] Deploy `/.well-known/assetlinks.json` on chravel.app for Android App Links (needs SHA-256 from Play Console → App signing)
 - [ ] Ensure `/.well-known/assetlinks.json` includes `/auth-callback` App Link support for `com.chravel.app` release SHA-256 (OAuth return path)
 
+## Android — SDK 55 minSdkVersion & version code (decision record, 2026-06-25)
+Play Console warns that a new build "no longer supports ~18,500 devices that were supported in your previous release" (Android 5/6, API 21–23). **This is expected and is NOT fixable on this stack — do not try to lower `minSdkVersion` to restore them.**
+
+- **Expo SDK 55 floors `minSdkVersion` at API 24** (the 23→24 bump landed in SDK 52). New Architecture is **mandatory** in SDK 55 — Legacy Arch was removed and `newArchEnabled` is no longer a real config key, so the `newArchEnabled: true` line in `app.config.js` is now vestigial and there is no toggle to drop the floor.
+- **The native libraries are compiled for API 24** — RN 0.83's New-Arch runtime and `react-native-purchases` (RevenueCat `purchases-hybrid-common`). Forcing `minSdkVersion: 21` via `expo-build-properties` yields a hard build failure (`"library was built for 24"` / manifest-merger), not a working app.
+- **The Play Console message is a non-blocking warning** — the release still publishes; API 21–23 devices stay on their last compatible version.
+- To set the floor explicitly (optional, self-documenting only — same coverage): add `["expo-build-properties", { android: { minSdkVersion: 24 } }]` to the `plugins` array. `android.minSdkVersion` at the top level of the Expo config is **not** read by Expo.
+
+**Android `versionCode` is managed remotely by EAS** (`eas.json`: `appVersionSource: remote` + `production.android.autoIncrement: true`), exactly like the iOS `buildNumber` noted above. There is no `versionCode` in `app.config.js` and there should not be one — a local value is ignored under remote versioning. Each production build auto-increments (e.g. the rejected `62` → next build `63` automatically). Inspect/repair with `eas build:version:get|set --platform android --profile production`.
+
 ## Security
 - [ ] Ensure new repo (Chravel-Inc/ChravelApp) has no secrets in git history
 
