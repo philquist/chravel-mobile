@@ -134,7 +134,7 @@ When the design changes:
 2. Re-run `python3 assets/brand/regenerate.py`.
 3. Replace `assets/icon.png`, `assets/adaptive-icon.png`, and `assets/splash.png` if they need to change too — they are the same as `source/launcher-icon-master.png` and `source/splash-master.png` and must be updated together.
 4. Copy the regenerated PWA files into `Chravel-Inc/ChravelApp/public/` (see checklist below).
-5. Bump `versionCode` (Android) and `buildNumber` (iOS) in `app.config.js` so cached splash assets are refreshed on existing installs.
+5. No manual version bump is needed to refresh cached splash assets on existing installs — EAS auto-increments the iOS `buildNumber` / Android `versionCode` on every production build (`eas.json`: `appVersionSource: remote` + `autoIncrement`), which already busts the per-build cache token. Do **not** add `versionCode`/`buildNumber` to `app.config.js`; under remote versioning they are ignored.
 
 ## ChravelApp drop-in checklist (PWA on iOS Safari + Android Chrome)
 
