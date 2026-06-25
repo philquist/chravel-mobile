@@ -1,4 +1,4 @@
-import { isAuthScreenUrl } from "./authUrl";
+import { isAuthReturnFlowUrl } from "./authUrl";
 
 export interface ReadyDecisionInput {
   isAuthRedirect: boolean;
@@ -20,11 +20,13 @@ export function evaluateReadyDecision({
   currentUrl,
   pendingPath,
 }: ReadyDecisionInput): ReadyDecision {
-  const onAuthScreen = isAuthScreenUrl(currentUrl);
+  const inAuthReturnFlow = isAuthReturnFlowUrl(currentUrl);
 
   if (pendingPath) {
     const shouldDeferPendingPath =
-      isAuthRedirect && onAuthScreen && !pendingPath.startsWith("/auth-callback");
+      isAuthRedirect &&
+      inAuthReturnFlow &&
+      !pendingPath.startsWith("/auth-callback");
 
     if (shouldDeferPendingPath) {
       return {
@@ -35,14 +37,14 @@ export function evaluateReadyDecision({
     }
 
     return {
-      keepLoadingOverlay: isAuthRedirect && onAuthScreen,
+      keepLoadingOverlay: isAuthRedirect && inAuthReturnFlow,
       applyPathNow: pendingPath,
       deferPendingPath: false,
     };
   }
 
   return {
-    keepLoadingOverlay: isAuthRedirect && onAuthScreen,
+    keepLoadingOverlay: isAuthRedirect && inAuthReturnFlow,
     applyPathNow: null,
     deferPendingPath: false,
   };
