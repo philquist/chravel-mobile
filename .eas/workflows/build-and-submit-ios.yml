@@ -2,7 +2,7 @@ name: Build and submit iOS (manual)
 # Manual-only: no push trigger so it never auto-runs and burns EAS build credits.
 # Run on demand from the EAS dashboard ("Run workflow") or `eas workflow:run build-and-submit-ios.yml`.
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
 jobs:
   build_ios:
     name: Build iOS

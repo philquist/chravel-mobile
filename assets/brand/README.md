@@ -8,7 +8,7 @@ Canonical source-of-truth for Chravel's launcher icon, splash, and PWA artwork. 
 assets/brand/
 ├── source/                                    # masters — edit only these
 │   ├── splash-master.png            1536x1024 # gold-globe + "Less Chaos More Coordination"
-│   ├── launcher-icon-master.png     1024x1024 # white-bg globe collage (app/launcher icon)
+│   ├── launcher-icon-master.png     1024x1024 # gold C + airplane badge on black (app/launcher icon)
 │   ├── splash-icon-master.png       1024x1024 # square globe-ring crop (no tagline)
 │   └── splash-icon-master-alpha.png 1024x1024 # globe-ring with alpha-keyed background
 ├── icons/                                     # native fallback derivatives
@@ -18,7 +18,7 @@ assets/brand/
 └── pwa/                                       # drop into ChravelApp/public/
     ├── icon-192.png                  192x192  # standard PWA icon
     ├── icon-512.png                  512x512
-    ├── icon-192-maskable.png         192x192  # 20% safe-zone padded
+    ├── icon-192-maskable.png         192x192  # full-bleed gold (emblem centered in safe zone)
     ├── icon-512-maskable.png         512x512
     ├── apple-touch-icon.png          180x180  # iOS Add-to-Home-Screen
     ├── favicon-32.png                 32x32
@@ -30,11 +30,11 @@ assets/brand/
 
 | Asset path                                    | Surface                                       |
 |-----------------------------------------------|-----------------------------------------------|
-| `assets/icon.png`                             | iOS app icon                                  |
-| `assets/adaptive-icon.png`                    | Android launcher (legacy / non-adaptive)      |
-| `assets/android-icon-foreground.png`          | Android adaptive launcher foreground          |
-| `assets/android-icon-background.png`          | Android adaptive launcher background tile     |
-| `assets/android-icon-monochrome.png`          | Android 13+ themed-icon mono (not yet wired)  |
+| `assets/icon.png`                             | iOS app icon. **Generated** by `regenerate.py` — the gold badge over-scanned to ~121% of the tile so the gold reaches past every corner and the installed icon is solid gold (no black edge after iOS's superellipse rounding). Flattened to RGB (the App Store rejects icons with an alpha channel). Byte-identical to `adaptive-icon.png`. |
+| `assets/adaptive-icon.png`                    | Android adaptive launcher **foreground** (wired via `app.config.js` → `android.adaptiveIcon.foregroundImage`, paired with `backgroundColor: "#000000"`). **Generated** by `regenerate.py` — same over-scanned solid-gold tile as `icon.png`, so any launcher mask (circle, squircle, or a near-square OEM mask) only ever cuts gold; the emblem stays well inside the safe zone. |
+| `assets/android-icon-foreground.png`          | Stand-alone adaptive foreground art. Documented layer; **not currently wired** (app.config.js uses `adaptive-icon.png` + a solid `backgroundColor`). |
+| `assets/android-icon-background.png`          | Stand-alone adaptive background tile. **Not currently wired.**          |
+| `assets/android-icon-monochrome.png`          | Android 13+ themed-icon mono. **Not currently wired.**  |
 | `assets/splash-lockup.png`                    | **Active (iOS cold launch only)** — full lockup: globe + gradient `ChravelApp` + white tagline on `#0b0b0f`. Expo iOS splash uses this PNG during cold launch; runtime loading now uses a neutral spinner overlay in `src/ChravelWebView.tsx` (no duplicate branded lockup). |
 | `assets/splash-icon-android.png`              | **Active (Android 12+ cold launch only)** — same three elements (globe + gradient `ChravelApp` + tagline) but laid out inside the inscribed circle the OS will clip the splash icon to. Layout measurements (in `regenerate.py`): wordmark center y=560 chord 1018 px (>617 width), tagline bottom y=731 chord 928 px (>828 width with ≈±50 px margin). Rendered via `expo-splash-screen` with `imageWidth: 240`. After native splash handoff, runtime loading uses the neutral spinner overlay (not a second branded lockup). |
 | `assets/splash.png`                           | Legacy master composition. No longer wired into runtime; kept as the regenerate.py input for derivatives. |
@@ -51,88 +51,15 @@ pip3 install --quiet Pillow
 python3 assets/brand/regenerate.py
 ```
 
-If `regenerate.py` doesn't exist yet, paste the script below into it. The script is idempotent — running twice is safe.
-
-```python
-# assets/brand/regenerate.py
-from PIL import Image, ImageDraw, ImageFont, ImageOps
-
-BG = (11, 11, 15, 255)  # #0b0b0f — splash backgroundColor in app.config.js
-GOLD = (196, 151, 70, 255)
-WHITE = (255, 255, 255, 255)
-FONT_BOLD = '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf'
-
-LAUNCHER = Image.open('assets/brand/source/launcher-icon-master.png').convert('RGBA')
-SPLASH_MASTER = Image.open('assets/brand/source/splash-master.png').convert('RGB')
-GLOBE_ALPHA = Image.open('assets/brand/source/splash-icon-master-alpha.png').convert('RGBA')
-
-def square_on_bg(img, size, padding_pct=0.0, mode='RGBA'):
-    canvas = Image.new('RGBA', (size, size), BG)
-    inner = int(size * (1 - 2 * padding_pct))
-    fitted = img.resize((inner, inner), Image.LANCZOS)
-    canvas.paste(fitted, ((size - inner) // 2, (size - inner) // 2), fitted)
-    if mode == 'RGB':
-        out = Image.new('RGB', (size, size), BG[:3])
-        out.paste(canvas, mask=canvas.split()[3])
-        return out
-    return canvas
-
-# PWA icons (drop these into ChravelApp/public/)
-square_on_bg(LAUNCHER, 192).save('assets/brand/pwa/icon-192.png', optimize=True)
-square_on_bg(LAUNCHER, 512).save('assets/brand/pwa/icon-512.png', optimize=True)
-square_on_bg(LAUNCHER, 192, 0.20).save('assets/brand/pwa/icon-192-maskable.png', optimize=True)
-square_on_bg(LAUNCHER, 512, 0.20).save('assets/brand/pwa/icon-512-maskable.png', optimize=True)
-square_on_bg(LAUNCHER, 180, mode='RGB').save('assets/brand/pwa/apple-touch-icon.png', optimize=True)
-square_on_bg(LAUNCHER, 32).save('assets/brand/pwa/favicon-32.png', optimize=True)
-square_on_bg(LAUNCHER, 16).save('assets/brand/pwa/favicon-16.png', optimize=True)
-
-# Globe-only fallback (matches A12+ behavior if you ever want to revert from tagline)
-square_on_bg(GLOBE_ALPHA, 192).save('assets/brand/icons/globe-192.png', optimize=True)
-square_on_bg(GLOBE_ALPHA, 512).save('assets/brand/icons/globe-512.png', optimize=True)
-
-# iPad Pro PWA startup image fallback
-canvas = Image.new('RGB', (2048, 2732), BG[:3])
-fitted = ImageOps.contain(SPLASH_MASTER, (2048, 2732))
-canvas.paste(fitted, ((2048 - fitted.width) // 2, (2732 - fitted.height) // 2))
-canvas.save('assets/brand/pwa/apple-splash-2732x2048.png', optimize=True)
-
-# Android 12+ splash icon: globe + 2-line tagline that survives the circular mask.
-# All visible content stays inside an inscribed circle of diameter 1024 — verified
-# by chord math: at y=628 chord=998px, at y=722 chord=935px; tagline width=711px.
-SIZE = 1024
-GLOBE_DIAM = 470
-GLOBE_CY = 312
-canvas = Image.new('RGBA', (SIZE, SIZE), BG)
-draw = ImageDraw.Draw(canvas)
-globe = GLOBE_ALPHA.resize((GLOBE_DIAM, GLOBE_DIAM), Image.LANCZOS)
-canvas.paste(globe, ((SIZE - GLOBE_DIAM) // 2, GLOBE_CY - GLOBE_DIAM // 2), globe)
-
-font = ImageFont.truetype(FONT_BOLD, 80)
-# Line 1: "Less " white + "Chaos" gold
-w_white = font.getbbox("Less ")[2]
-w_gold = font.getbbox("Chaos")[2]
-x1 = (SIZE - (w_white + w_gold)) // 2
-draw.text((x1, 628), "Less ", font=font, fill=WHITE)
-draw.text((x1 + w_white, 628), "Chaos", font=font, fill=GOLD)
-# Line 2: "More Coordination" all gold
-w2 = font.getbbox("More Coordination")[2]
-draw.text(((SIZE - w2) // 2, 722), "More Coordination", font=font, fill=GOLD)
-
-out = Image.new('RGB', (SIZE, SIZE), BG[:3])
-out.paste(canvas, mask=canvas.split()[3])
-out.save('assets/splash-icon-android.png', 'PNG', optimize=True)
-out.save('assets/brand/icons/android-splash-icon.png', 'PNG', optimize=True)
-
-print('OK')
-```
+`assets/brand/regenerate.py` is the canonical, runnable source — read it there rather than relying on a copy here. It is idempotent (running twice is safe) and derives every output below from the `source/` masters: the native app icons (`assets/icon.png`, `assets/adaptive-icon.png`), the PWA set in `pwa/`, the globe fallbacks, and the Android 12+ splash icon. It auto-detects the gold badge inside `launcher-icon-master.png` and re-frames it per platform (see the table above), so the launcher master can stay a badge-on-black render with margin.
 
 ## Updating brand artwork
 
 When the design changes:
 
-1. Replace the master PNG(s) in `source/`. Keep the same filenames and dimensions.
-2. Re-run `python3 assets/brand/regenerate.py`.
-3. Replace `assets/icon.png`, `assets/adaptive-icon.png`, and `assets/splash.png` if they need to change too — they are the same as `source/launcher-icon-master.png` and `source/splash-master.png` and must be updated together.
+1. Replace the master PNG(s) in `source/`. Keep the same filenames and dimensions. The launcher master (`launcher-icon-master.png`) may be a gold badge on a pure-black field with margin — `regenerate.py` auto-detects the badge's bounds and re-frames it, so the exact margin in the master doesn't matter.
+2. Re-run `python3 assets/brand/regenerate.py`. This now also (re)writes the **native** app icons — `assets/icon.png` (iOS) and `assets/adaptive-icon.png` (Android adaptive foreground) — directly from `source/launcher-icon-master.png`. You no longer hand-copy them.
+3. If you change the splash composition, also replace `assets/splash.png` (the legacy `splash-master` mirror) — it is not generated by the script.
 4. Copy the regenerated PWA files into `Chravel-Inc/ChravelApp/public/` (see checklist below).
 5. No manual version bump is needed to refresh cached splash assets on existing installs — EAS auto-increments the iOS `buildNumber` / Android `versionCode` on every production build (`eas.json`: `appVersionSource: remote` + `autoIncrement`), which already busts the per-build cache token. Do **not** add `versionCode`/`buildNumber` to `app.config.js`; under remote versioning they are ignored.
 
@@ -197,8 +124,8 @@ In ChravelApp's root layout / `index.html`:
 
 After deploying:
 
-- iOS Safari → share sheet → Add to Home Screen → cold-launch the installed PWA. The icon should be the gold globe; the splash should be a dark `#0b0b0f` background centered on the gold-globe artwork (or fall back to the apple-touch-icon centered on dark).
-- Android Chrome → install PWA → cold-launch. The install dialog and the standalone window header should both be `#0b0b0f`; the home-screen icon should be the gold-globe collage with no white square clipping (maskable variant prevents that).
+- iOS Safari → share sheet → Add to Home Screen → cold-launch the installed PWA. The icon should be the gold C + airplane badge; the splash should be a dark `#0b0b0f` background centered on the splash artwork (or fall back to the apple-touch-icon centered on dark).
+- Android Chrome → install PWA → cold-launch. The install dialog and the standalone window header should both be `#0b0b0f`; the home-screen icon should be the gold C + airplane badge with no white square clipping (maskable variant prevents that).
 - DevTools → Application → Manifest: every icon entry resolves to a 200 with the right dimensions.
 
 ## Design rules
@@ -206,7 +133,8 @@ After deploying:
 - **Splash background**: `#0b0b0f` (dark near-black). Matches `expo-splash-screen` plugin `backgroundColor`.
 - **Primary brand color**: `#3A60D0` (per `CLAUDE.md`) — used in the WebView, not in launch artwork.
 - **Accent gold**: `#c49746` — used for spinner color and tagline highlights.
-- **Maskable safe zone**: 20% padding on all sides for any icon flagged `purpose: "maskable"`. Android home-screen masks crop to circle/squircle; padding ensures the artwork survives.
+- **Maskable safe zone**: a `purpose: "maskable"` icon must keep its meaningful content inside the center 40%-radius circle (the OS may crop everything outside it to circle/squircle). The current launcher emblem (gold C + airplane) sits deep in the center, so the maskable variants are rendered **full-bleed gold** — every mask shape fills with gold and the emblem is never clipped. (If a future master pushes detail toward the edges, pull it back in with padding instead.)
+- **App-icon framing**: the launcher master is a gold badge on black with margin. The native tiles must read as a **solid gold icon with no black edge** on every OS, so `regenerate.py` over-scans the badge to ~121% of the tile (`ICON_OVERSCAN`): the badge's own rounded corners and the black field fall off-canvas, leaving gold under any mask shape (iOS superellipse, Android circle/squircle, near-square OEM masks). `icon.png` and `adaptive-icon.png` are the same image; `app.config.js` sets `android.adaptiveIcon.backgroundColor` to `#000000` (the opaque gold tile covers it regardless). If a future master changes the emblem size, re-check `ICON_OVERSCAN` so the over-scan still clears the corners without clipping the emblem.
 - **Android 12+ splash icon**: anything outside an inscribed circle of diameter = canvas edge will be masked by the OS. Use the `regenerate.py` chord math as a guide before adding text.
 - **iOS launch screen**: full 1536x1024 composition, contained on `#0b0b0f` — the entire artwork is visible.
 
