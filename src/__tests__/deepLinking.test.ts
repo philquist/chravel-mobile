@@ -28,6 +28,7 @@ import {
   NATIVE_OAUTH_CALLBACK_URL,
   rewriteOAuthUrlForNativeCallback,
   isNativeAuthReturnPath,
+  preferExistingDeferredPath,
 } from "../deepLinking";
 
 describe("isAuthScreenUrl", () => {
@@ -238,9 +239,31 @@ describe("isNativeAuthReturnPath", () => {
   it("accepts /auth callback-style routes", () => {
     expect(isNativeAuthReturnPath("/auth#access_token=x")).toBe(true);
     expect(isNativeAuthReturnPath("/auth/callback?code=123")).toBe(true);
+    expect(isNativeAuthReturnPath("/auth?code=123")).toBe(true);
+    expect(isNativeAuthReturnPath("/auth?error=access_denied")).toBe(true);
+  });
+
+  it("rejects bare /auth and marketing query params", () => {
+    expect(isNativeAuthReturnPath("/auth")).toBe(false);
+    expect(isNativeAuthReturnPath("/auth?app_context=native")).toBe(false);
   });
 
   it("rejects non-auth routes", () => {
     expect(isNativeAuthReturnPath("/trip/abc")).toBe(false);
+  });
+});
+
+describe("preferExistingDeferredPath", () => {
+  it("keeps an existing notification-deferred path", () => {
+    expect(
+      preferExistingDeferredPath(
+        "/trip/t1?tab=chat&thread=th1",
+        "/auth",
+      ),
+    ).toBe("/trip/t1?tab=chat&thread=th1");
+  });
+
+  it("uses the linking path when nothing is deferred yet", () => {
+    expect(preferExistingDeferredPath(null, "/trip/t1")).toBe("/trip/t1");
   });
 });
