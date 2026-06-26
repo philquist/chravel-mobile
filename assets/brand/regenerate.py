@@ -76,16 +76,20 @@ def frame_badge(size, width_frac=0.92, mode='RGBA'):
 
 
 # Native app icons (consumed by app.config.js -> EAS asset-catalog generation).
-#   icon.png            iOS: ~90% so iOS's own corner-rounding leaves a slim,
-#                       deliberate dark edge and never clips the badge bevel.
-#                       Flattened to RGB — the App Store rejects icons with alpha.
-#   adaptive-icon.png   Android adaptive foreground: badge fills the tile width
-#                       so the launcher's circle/squircle mask is filled with
-#                       gold (no black gaps at the mask midpoints). The emblem
-#                       sits deep in the center, safely inside the 66% safe zone.
-#                       app.config.js sets adaptiveIcon.backgroundColor "#000000".
-frame_badge(1024, 0.90, mode='RGB').save('assets/icon.png', 'PNG', optimize=True)
-frame_badge(1024, 1.00, mode='RGB').save('assets/adaptive-icon.png', 'PNG', optimize=True)
+# Both are the gold badge over-scanned to ~121% of the tile (ICON_OVERSCAN) so
+# the gold reaches past every corner: the badge's own rounded corners and the
+# surrounding black field fall OFF-canvas, leaving a solid-gold tile with the
+# engraved emblem centered. Whatever shape the OS masks to — iOS's superellipse,
+# an Android circle/squircle, or a near-square OEM mask — it only ever cuts gold,
+# so the installed icon shows no black edge anywhere. Flattened to RGB (the App
+# Store rejects icons with an alpha channel). The emblem stays comfortably
+# inside the safe zone, so the over-scan never clips it.
+#   icon.png            iOS app icon.
+#   adaptive-icon.png   Android adaptive foreground (backgroundColor "#000000"
+#                       in app.config.js, though the opaque gold tile covers it).
+ICON_OVERSCAN = 1.21
+frame_badge(1024, ICON_OVERSCAN, mode='RGB').save('assets/icon.png', 'PNG', optimize=True)
+frame_badge(1024, ICON_OVERSCAN, mode='RGB').save('assets/adaptive-icon.png', 'PNG', optimize=True)
 
 
 def gradient_band(width, height, stops):
