@@ -19,11 +19,11 @@ FONT_BOLD_CANDIDATES = [
 
 
 def load_bold_font(size):
-        for font_path in FONT_BOLD_CANDIDATES:
-                    if Path(font_path).exists():
-                                    return ImageFont.truetype(font_path, size)
+    for font_path in FONT_BOLD_CANDIDATES:
+        if Path(font_path).exists():
+            return ImageFont.truetype(font_path, size)
     raise FileNotFoundError(f'No supported bold font found. Tried: {FONT_BOLD_CANDIDATES}')
-            
+
 LAUNCHER = Image.open('assets/brand/source/launcher-icon-master.png').convert('RGBA')
 SPLASH_MASTER = Image.open('assets/brand/source/splash-master.png').convert('RGB')
 GLOBE_ALPHA = Image.open('assets/brand/source/splash-icon-master-alpha.png').convert('RGBA')
@@ -39,6 +39,53 @@ def square_on_bg(img, size, padding_pct=0.0, mode='RGBA'):
         out.paste(canvas, mask=canvas.split()[3])
         return out
     return canvas
+
+
+# --- Launcher-icon framing -------------------------------------------------
+# The launcher master is a gold rounded-square "badge" emblem rendered on a
+# pure-black field with ~16% margin. Native + PWA tiles re-frame that badge so
+# it fills the tile correctly per platform (the raw inset master would render a
+# small badge floating in a black square). All framing is on pure black so it
+# matches the master's background and any mask anti-aliasing stays seamless.
+ICON_BLACK = (0, 0, 0, 255)
+
+
+def _badge_bbox(img, thr=40):
+    """Bounding box of the gold badge (everything brighter than near-black)."""
+    bw = img.convert('L').point(lambda p: 255 if p > thr else 0)
+    return bw.getbbox()
+
+
+_BADGE = LAUNCHER.crop(_badge_bbox(LAUNCHER))  # gold badge cropped out of the black field
+
+
+def frame_badge(size, width_frac=0.92, mode='RGBA'):
+    """Place the cropped badge on a `size` black canvas at `width_frac` of the
+    tile width, centered. Aspect ratio is preserved; vertical overflow (when
+    width_frac is large) is intentional — circular/squircle masks clip it.
+    """
+    canvas = Image.new('RGBA', (size, size), ICON_BLACK)
+    bw, bh = _BADGE.size
+    new_w = round(size * width_frac)
+    new_h = round(bh * (new_w / bw))
+    b = _BADGE.resize((new_w, new_h), Image.LANCZOS)
+    canvas.alpha_composite(b, ((size - new_w) // 2, (size - new_h) // 2))
+    if mode == 'RGB':
+        return canvas.convert('RGB')
+    return canvas
+
+
+# Native app icons (consumed by app.config.js -> EAS asset-catalog generation).
+#   icon.png            iOS: ~90% so iOS's own corner-rounding leaves a slim,
+#                       deliberate dark edge and never clips the badge bevel.
+#                       Flattened to RGB — the App Store rejects icons with alpha.
+#   adaptive-icon.png   Android adaptive foreground: badge fills the tile width
+#                       so the launcher's circle/squircle mask is filled with
+#                       gold (no black gaps at the mask midpoints). The emblem
+#                       sits deep in the center, safely inside the 66% safe zone.
+#                       app.config.js sets adaptiveIcon.backgroundColor "#000000".
+frame_badge(1024, 0.90, mode='RGB').save('assets/icon.png', 'PNG', optimize=True)
+frame_badge(1024, 1.00, mode='RGB').save('assets/adaptive-icon.png', 'PNG', optimize=True)
 
 
 def gradient_band(width, height, stops):
@@ -79,14 +126,18 @@ def paste_text_centered(canvas, text, font, cx, cy, fill):
     draw.text((cx - w // 2 - bbox[0], cy - h // 2 - bbox[1]), text, font=font, fill=fill)
 
 
-# PWA icons (drop these into ChravelApp/public/)
-square_on_bg(LAUNCHER, 192).save('assets/brand/pwa/icon-192.png', optimize=True)
-square_on_bg(LAUNCHER, 512).save('assets/brand/pwa/icon-512.png', optimize=True)
-square_on_bg(LAUNCHER, 192, 0.20).save('assets/brand/pwa/icon-192-maskable.png', optimize=True)
-square_on_bg(LAUNCHER, 512, 0.20).save('assets/brand/pwa/icon-512-maskable.png', optimize=True)
-square_on_bg(LAUNCHER, 180, mode='RGB').save('assets/brand/pwa/apple-touch-icon.png', optimize=True)
-square_on_bg(LAUNCHER, 32).save('assets/brand/pwa/favicon-32.png', optimize=True)
-square_on_bg(LAUNCHER, 16).save('assets/brand/pwa/favicon-16.png', optimize=True)
+# PWA icons (drop these into ChravelApp/public/). Same gold badge as the native
+# tiles. "any" icons keep a slim margin (browsers show them in their own rounded
+# container); maskable icons are full-bleed gold — safe because the emblem sits
+# deep inside the 40% maskable safe-zone radius, so every mask shape fills with
+# gold and nothing important is clipped. apple-touch + favicons flatten to RGB.
+frame_badge(192, 0.92).save('assets/brand/pwa/icon-192.png', optimize=True)
+frame_badge(512, 0.92).save('assets/brand/pwa/icon-512.png', optimize=True)
+frame_badge(192, 1.00).save('assets/brand/pwa/icon-192-maskable.png', optimize=True)
+frame_badge(512, 1.00).save('assets/brand/pwa/icon-512-maskable.png', optimize=True)
+frame_badge(180, 0.92, mode='RGB').save('assets/brand/pwa/apple-touch-icon.png', optimize=True)
+frame_badge(32, 0.96, mode='RGB').save('assets/brand/pwa/favicon-32.png', optimize=True)
+frame_badge(16, 0.96, mode='RGB').save('assets/brand/pwa/favicon-16.png', optimize=True)
 
 # Globe-only fallback (matches A12+ behavior if you ever want to revert from tagline)
 square_on_bg(GLOBE_ALPHA, 192).save('assets/brand/icons/globe-192.png', optimize=True)
@@ -148,4 +199,3 @@ lockup_out.save('assets/splash-lockup.png', 'PNG', optimize=True)
 lockup_out.save('assets/brand/icons/splash-lockup.png', 'PNG', optimize=True)
 
 print('OK')
-h

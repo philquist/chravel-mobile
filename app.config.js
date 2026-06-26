@@ -154,7 +154,7 @@ module.exports = ({ config }) => ({
               android: {
     adaptiveIcon: {
       foregroundImage: "./assets/adaptive-icon.png",
-              backgroundColor: "#191817",
+              backgroundColor: "#000000",
         },
             package: "com.chravel.app",
                   googleServicesFile: "./google-services.json",
