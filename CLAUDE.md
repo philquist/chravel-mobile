@@ -60,7 +60,9 @@ This is the **native mobile shell only** — an Expo/React Native app (~1,500 li
 | `eas.json` | EAS build profiles (dev, preview, production) + submit config |
 | `store.config.json` | App Store Connect listing (title, subtitle, description, keywords, review info) — push with `npx eas-cli metadata:push` |
 | `fastlane/metadata/android/en-US/` | Play Store listing copy (title, short/full description) — canonical source; paste into Play Console manually (EAS Metadata does not support Google Play) |
-| `.github/workflows/eas-build.yml` | CI: build iOS + Android, auto-submit to TestFlight + Play Store on push to main |
+| `.github/workflows/eas-build.yml` | CI only: tests + TypeScript + platform smoke on push to main. Does **not** build — no EAS credits spent. |
+| `.eas/workflows/build-and-submit-ios.yml` | EAS Workflow: build iOS + submit to TestFlight. **Manual-only** (`workflow_dispatch`) — run from the EAS dashboard or `eas workflow:run`. |
+| `.eas/workflows/build-and-submit-android.yml` | EAS Workflow: build Android + submit to Play Store. **Manual-only** (`workflow_dispatch`) — run from the EAS dashboard or `eas workflow:run`. |
 
 ## Bridge protocol contract
 
@@ -205,13 +207,25 @@ No `.env` files are committed. RevenueCat keys are public client-side keys by de
 
 ## CI/CD
 
-Push to `main` → GitHub Actions → tests → EAS Build (iOS + Android) → auto-submit to TestFlight + Play Store (internal track).
+**Push to `main` runs free CI only — no builds, no EAS credits spent.**
+Builds are **manual / on-demand** so updates to this repo don't burn EAS build credits.
 
-- Workflow: `.github/workflows/eas-build.yml`
-- Tests + TypeScript check run before build
-- iOS build submits to TestFlight
-- Android build submits to Google Play internal testing track
-- **No preview/PR builds**
+```
+Push to main → GitHub Actions → tests + TypeScript + platform smoke   (free, no build)
+
+Ship a build (manual, when you choose):
+  EAS dashboard "Run workflow"  OR  eas workflow:run build-and-submit-ios.yml
+                                    eas workflow:run build-and-submit-android.yml
+  → EAS Build → auto-submit (iOS → TestFlight, Android → Play Store production)
+```
+
+- **CI workflow:** `.github/workflows/eas-build.yml` — `test` + `platform-smoke` jobs only.
+- **Build workflows:** `.eas/workflows/build-and-submit-{ios,android}.yml` — `workflow_dispatch`
+  (manual). Each builds then submits in one run. Trigger from the EAS dashboard or
+  `eas workflow:run <file>`. You can also build straight from the CLI:
+  `eas build --platform ios --profile production` (then `eas submit` if you want to ship it).
+- Versions auto-increment on each production build (`appVersionSource: remote` in `eas.json`).
+- **No preview/PR builds. No build-on-push.**
 
 ## Conventions
 

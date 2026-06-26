@@ -86,8 +86,9 @@ Play Console warns that a new build "no longer supports ~18,500 devices that wer
       capabilities and the production profile includes them (`eas credentials`). Entitlements file
       (verified via prebuild) already declares `applesignin` + `applinks/webcredentials:chravel.app`.
 - [ ] Build number auto-increments on the production build (`eas.json`: `appVersionSource: remote` +
-      `autoIncrement: buildNumber`) — no manual bump needed. Resubmit: `eas build -p ios --profile
-      production` then `eas submit -p ios --profile production` (runs via CI on merge to main).
+      `autoIncrement: buildNumber`) — no manual bump needed. Resubmit manually: `eas build -p ios
+      --profile production` then `eas submit -p ios --profile production`, or run the
+      `build-and-submit-ios` EAS Workflow from the dashboard. (Builds are no longer triggered on merge to main.)
 
 ### App Store v2.0 build 53 rejection fixes (Submission 31f5c251-…, reviewed 2026-06-24)
 - [x] **Guideline 2.1(a)** — "back to login after sign in with Apple" (iPhone 17 Pro Max / iOS 26.5).
@@ -116,7 +117,8 @@ Play Console warns that a new build "no longer supports ~18,500 devices that wer
 - [ ] Confirm Supabase Auth → URL Configuration allows `chravel://auth-callback` (see checklist above) —
       required for the custom-scheme redirect to be accepted.
 - [ ] Build number auto-increments (`eas.json`: remote versioning + `autoIncrement: buildNumber`) — no
-      manual bump. CI builds + submits on merge to main.
+      manual bump. Build + submit manually (EAS dashboard "Run workflow" or `eas workflow:run` / `eas build`);
+      no longer auto-built on merge to main.
 
 ### Considered but NOT done — native Sign in with Apple (`expo-apple-authentication`)
 - [ ] Evaluated for build 53 and intentionally deferred. Native ASAuthorization + chravel-web
