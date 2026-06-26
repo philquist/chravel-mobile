@@ -20,9 +20,19 @@ push payloads before each store submission.
 
 ## EAS build commands
 
+Builds are **manual / on-demand** — pushing to `main` runs CI tests only and does
+**not** start a build, so routine repo updates don't burn EAS build credits. Kick off
+a build when you actually want to ship one, either from the EAS dashboard
+("Run workflow" on `build-and-submit-ios` / `build-and-submit-android`) or from the CLI.
+
 Use the mobile repository root as the working directory:
 
 ```sh
+# Build + submit in one step via the EAS Workflows:
+eas workflow:run build-and-submit-ios.yml
+eas workflow:run build-and-submit-android.yml
+
+# …or build only (submit separately — see below):
 eas build --platform ios --profile production
 eas build --platform android --profile production
 ```
