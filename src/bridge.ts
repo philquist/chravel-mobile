@@ -16,6 +16,7 @@ export type BridgeMessage =
   | { type: "haptic"; style: HapticStyle }
   | { type: "browser:open"; url: string; presentationStyle?: "fullscreen" | "pageSheet" | "formSheet" | "popover" }
   | { type: "oauth:open"; url: string }
+  | { type: "apple:signin"; requestId: string }
   | { type: "push:register" }
   | { type: "push:unregister" }
   | { type: "push:checkPermissions"; requestId: string }
@@ -73,6 +74,42 @@ export function buildPushPermissionResponse(
 }
 
 /**
+ * Native Apple Sign In credential returned to the web app via the injected
+ * `window.ChravelNative.signInWithApple()` promise. The shape matches the
+ * contract chravel-web consumes in `attemptNativeAppleSignIn`
+ * (`src/utils/nativeAppleSignIn.ts`): the web passes `identityToken` +
+ * `rawNonce` to `supabase.auth.signInWithIdToken`, and forwards
+ * `authorizationCode` for server-side Apple-token-revocation capture (5.1.1(v)).
+ */
+export interface AppleSignInCredential {
+  identityToken: string;
+  rawNonce: string;
+  authorizationCode?: string;
+  email?: string;
+  fullName?: string;
+}
+
+export type AppleSignInResult =
+  | { ok: true; credential: AppleSignInCredential }
+  | { ok: false; error: string };
+
+/**
+ * Build a JS string that resolves (or rejects) the pending
+ * `signInWithApple()` promise in the injected bridge. Native runs the
+ * `ASAuthorization` sheet and injects this so the web promise settles. Mirrors
+ * `buildPushPermissionResponse` — the requestId routes back to the resolver
+ * stored by the shim when the web called `signInWithApple()`.
+ */
+export function buildAppleSignInResponse(
+  requestId: string,
+  result: AppleSignInResult,
+): string {
+  return `window.__chravelResolveAppleSignIn && window.__chravelResolveAppleSignIn(${JSON.stringify(
+    requestId,
+  )}, ${JSON.stringify(result)}); true;`;
+}
+
+/**
  * Clear cached Capacitor push registration replay state in the injected shim.
  * Must run on push:unregister so a subsequent addListener() cannot replay a
  * prior user's device token after account switch within the same WebView session.
@@ -94,6 +131,41 @@ export function buildNativeBootstrapJS(
   isTablet: boolean = false,
   nativeVersion: string = "1.0.0",
 ): string {
+  // Native Sign in with Apple is iOS-only (ASAuthorization). On other platforms
+  // we deliberately do NOT expose signInWithApple, so chravel-web's
+  // attemptNativeAppleSignIn sees no bridge and keeps its web OAuth fallback.
+  const appleSignIn = platform === "ios";
+  const appleResolverJs = appleSignIn
+    ? `
+      // ── Native Apple Sign In resolver (iOS) ─────────────────────
+      var __chravelApple = window.__chravelApple || { resolvers: {} };
+      window.__chravelApple = __chravelApple;
+      // Called from native (injected JS) to settle a signInWithApple() promise.
+      window.__chravelResolveAppleSignIn = function(requestId, result) {
+        var pending = __chravelApple.resolvers[requestId];
+        if (!pending) return;
+        delete __chravelApple.resolvers[requestId];
+        if (result && result.ok) {
+          pending.resolve(result.credential);
+        } else {
+          pending.reject(new Error(result && result.error ? String(result.error) : 'Apple sign-in failed'));
+        }
+      };
+`
+    : "";
+  const appleSignInProp = appleSignIn
+    ? `,
+        signInWithApple: function() {
+          return new Promise(function(resolve, reject) {
+            var requestId = 'as_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+            __chravelApple.resolvers[requestId] = { resolve: resolve, reject: reject };
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'apple:signin',
+              requestId: requestId
+            }));
+          });
+        }`
+    : "";
   return `
     (function installChravelNativeBridge() {
       if (window.ChravelNative && window.ChravelNative.isNative) {
@@ -217,7 +289,7 @@ export function buildNativeBootstrapJS(
           __chravelPushDispatch('registrationError', err);
         }
       });
-
+${appleResolverJs}
       window.ChravelNative = {
         platform: "${platform}",
         isNative: true,
@@ -239,7 +311,7 @@ export function buildNativeBootstrapJS(
           window.ReactNativeWebView.postMessage(JSON.stringify({
             type: "openNotificationSettings"
           }));
-        }
+        }${appleSignInProp}
       };
 
       // ── Native Audio API for Gemini Live voice ──────────────────
@@ -587,6 +659,7 @@ export function parseBridgeMessage(raw: string): BridgeMessage | null {
 
       case "push:checkPermissions":
       case "push:requestPermissions":
+      case "apple:signin":
         if (typeof data.requestId === "string") {
           return data as BridgeMessage;
         }

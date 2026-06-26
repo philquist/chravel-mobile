@@ -212,6 +212,11 @@ module.exports = ({ config }) => ({
               // UIBackgroundMode so we never regress App Store Guideline 2.5.4.
               "./plugins/withNoAudioBackgroundMode",
               "expo-notifications",
+              // Native Sign in with Apple (ASAuthorization). The
+              // com.apple.developer.applesignin entitlement + usesAppleSignIn
+              // are already declared in ios above; this links the module so
+              // window.ChravelNative.signInWithApple() works (Guideline 2.1(a)).
+              "expo-apple-authentication",
               [
                 "expo-audio",
           {

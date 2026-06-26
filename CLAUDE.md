@@ -78,6 +78,7 @@ Any changes here **must** be coordinated with the web app in `ChravelApp`.
 | `push:unregister` | — | Revoke push registration |
 | `push:checkPermissions` | `requestId` | Query push permission without prompting; native replies by resolving the `PushNotifications` shim promise (`{ receive }`) |
 | `push:requestPermissions` | `requestId` | Request push permission (OS prompt); native resolves the shim promise (`{ receive }`) |
+| `apple:signin` | `requestId` | **iOS only.** Run the native Apple `ASAuthorization` sheet; native resolves the `signInWithApple()` promise with `{ identityToken, rawNonce, authorizationCode?, email?, fullName? }` (or rejects). Avoids the browser OAuth round-trip Apple rejects under Guideline 2.1(a). |
 | `openAppSettings` | — | Open the iOS app settings page (denied-permission UX) |
 | `openNotificationSettings` | — | Open notification settings (falls back to app settings on iOS) |
 | `revenuecat:identify` | `userId` | Link Supabase user to RevenueCat |
@@ -143,7 +144,7 @@ notification: {
 ### Injected globals
 
 The native shell injects these before page load (`buildInjectedJS` in `bridge.ts`):
-- `window.ChravelNative` — `{ platform: "ios"|"android", isNative: true, version: "1.0.0", isTablet, openOAuthUrl(url), openAppSettings(), openNotificationSettings() }`
+- `window.ChravelNative` — `{ platform: "ios"|"android", isNative: true, version: "1.0.0", isTablet, openOAuthUrl(url), openAppSettings(), openNotificationSettings(), signInWithApple()? }` (`signInWithApple()` is injected **iOS only** — returns `Promise<{ identityToken, rawNonce, authorizationCode?, email?, fullName? }>`; consumed by chravel-web `attemptNativeAppleSignIn`, which falls back to web OAuth when the method is absent)
 - `window.ChravelNativeAudio` — `{ isAvailable, requestPermission(), startCapture(), stopCapture(), playAudio(base64, sampleRate), flushPlayback() }`
 - `window.Capacitor` — `{ isNativePlatform(): true, Plugins: { Browser, PushNotifications } }`
 

@@ -26,9 +26,11 @@ import {
   buildNativeDocumentEndJS,
   buildWebEvent,
   buildPushPermissionResponse,
+  buildAppleSignInResponse,
   buildClearPushRegistrationCache,
   parseBridgeMessage,
 } from "./bridge";
+import { runNativeAppleSignIn } from "./appleAuth";
 import {
   registerForPushNotifications,
   checkPushPermission,
@@ -402,6 +404,30 @@ ${buildWebEvent("chravel:push-unregistered", { success: true })}`,
         webViewRef.current?.injectJavaScript(
           buildPushPermissionResponse(message.requestId, receive),
         );
+        break;
+      }
+
+      case "apple:signin": {
+        // Run the native Apple sheet (ASAuthorization) and settle the web's
+        // signInWithApple() promise. Always inject a response — success or
+        // failure — so the awaiting web promise can't hang; on failure the web
+        // helper falls back to the browser OAuth flow.
+        try {
+          const credential = await runNativeAppleSignIn();
+          webViewRef.current?.injectJavaScript(
+            buildAppleSignInResponse(message.requestId, {
+              ok: true,
+              credential,
+            }),
+          );
+        } catch (error) {
+          webViewRef.current?.injectJavaScript(
+            buildAppleSignInResponse(message.requestId, {
+              ok: false,
+              error: error instanceof Error ? error.message : "Apple sign-in failed",
+            }),
+          );
+        }
         break;
       }
 
