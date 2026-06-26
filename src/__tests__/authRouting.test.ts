@@ -35,6 +35,31 @@ describe("evaluateReadyDecision", () => {
     expect(result.deferPendingPath).toBe(false);
     expect(result.applyPathNow).toBe("/auth-callback/123#access_token=x");
   });
+
+  it("defers notification/deep-link paths while on /auth-callback during OAuth", () => {
+    const result = evaluateReadyDecision({
+      isAuthRedirect: true,
+      currentUrl:
+        "https://chravel.app/auth-callback?code=pkce-code&app_context=native",
+      pendingPath: "/trip/abc?tab=chat",
+    });
+
+    expect(result.keepLoadingOverlay).toBe(true);
+    expect(result.deferPendingPath).toBe(true);
+    expect(result.applyPathNow).toBeNull();
+  });
+
+  it("applies deferred route after leaving the auth return flow", () => {
+    const result = evaluateReadyDecision({
+      isAuthRedirect: true,
+      currentUrl: "https://chravel.app/trip/abc?app_context=native",
+      pendingPath: "/trip/abc?tab=chat",
+    });
+
+    expect(result.keepLoadingOverlay).toBe(false);
+    expect(result.deferPendingPath).toBe(false);
+    expect(result.applyPathNow).toBe("/trip/abc?tab=chat");
+  });
 });
 
 describe("resolveAuthSurface", () => {

@@ -38,6 +38,7 @@ import {
   clearNotificationBadge,
 } from "./notifications";
 import { triggerHaptic } from "./haptics";
+import { isAuthReturnFlowUrl } from "./authUrl";
 import {
   buildWebViewLaunchUrl,
   buildNativeAuthLaunchUrl,
@@ -550,16 +551,21 @@ ${buildWebEvent("chravel:push-unregistered", { success: true })}`,
           const url = navState.url ?? "";
           currentUrlRef.current = url;
           const onAuth = isAuthScreenUrl(url);
+          const inAuthReturnFlow = isAuthReturnFlowUrl(url);
 
-          if (wasOnAuthRef.current && !onAuth && url.startsWith(WEB_APP_URL)) {
-            if (isAuthRedirectRef.current) {
-              // OAuth just completed — dismiss overlay now that we've
-              // left /auth and landed on the authenticated page.
-              isAuthRedirectRef.current = false;
-              clearLoadingFallbackTimer();
-              setIsLoading(false);
-            }
-            // Apply any deep link deferred while OAuth was finishing on /auth.
+          // Finish OAuth only after leaving every auth bootstrap / callback
+          // surface. Do not apply a deferred notification/deep-link path when
+          // transitioning /auth → /auth-callback — that would navigate away
+          // from the PKCE exchange before the session is hydrated.
+          if (
+            isAuthRedirectRef.current &&
+            !inAuthReturnFlow &&
+            url.startsWith(WEB_APP_URL)
+          ) {
+            isAuthRedirectRef.current = false;
+            clearLoadingFallbackTimer();
+            setIsLoading(false);
+
             if (initialUrlRef.current) {
               const pending = initialUrlRef.current;
               initialUrlRef.current = null;
