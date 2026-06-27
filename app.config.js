@@ -45,7 +45,9 @@ module.exports = ({ config }) => ({
               NSMicrophoneUsageDescription: "Chravel uses your microphone for AI Concierge voice conversations when you tap the mic.",
               NSSpeechRecognitionUsageDescription: "Chravel uses speech recognition to transcribe your voice input for AI Concierge and chat dictation.",
               ITSAppUsesNonExemptEncryption: false,
-              CFBundleDisplayName: "ChravelApp",
+              // Home-screen name must match the App Store listing title "Chravel"
+              // (store.config.json) to avoid a Guideline 2.3.7 name-mismatch nit.
+              CFBundleDisplayName: "Chravel",
         },
             associatedDomains: ["applinks:chravel.app", "applinks:www.chravel.app", "webcredentials:chravel.app"],
             entitlements: {
@@ -220,7 +222,7 @@ module.exports = ({ config }) => ({
               [
                 "expo-audio",
           {
-                  microphonePermission: "ChravelApp needs microphone access for voice conversations with AI Concierge",
+                  microphonePermission: "Chravel needs microphone access for voice conversations with AI Concierge",
                   // Chravel only records / plays audio in the FOREGROUND (voice
                   // notes + AI Concierge TTS). Disabling these keeps expo-audio
                   // from adding the "audio" UIBackgroundMode (Guideline 2.5.4)
