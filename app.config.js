@@ -38,16 +38,16 @@ module.exports = ({ config }) => ({
           buildNumber: "1",
           usesAppleSignIn: true,
           infoPlist: {
-      NSCameraUsageDescription: "Chravel uses the camera to capture photos and videos you choose to share with your trips.",
-              NSPhotoLibraryUsageDescription: "Chravel needs access to your photo library so you can upload photos and videos to trip chats and shared albums.",
-              NSPhotoLibraryAddUsageDescription: "Chravel needs permission to save trip photos and videos to your library when you choose to download media.",
-              NSLocationWhenInUseUsageDescription: "Chravel uses your location (only while you're using the app) for optional location sharing and to help coordinate meetups during a trip.",
-              NSMicrophoneUsageDescription: "Chravel uses your microphone for AI Concierge voice conversations when you tap the mic.",
-              NSSpeechRecognitionUsageDescription: "Chravel uses speech recognition to transcribe your voice input for AI Concierge and chat dictation.",
+      NSCameraUsageDescription: "ChravelApp uses the camera to capture photos and videos you choose to share with your trips.",
+              NSPhotoLibraryUsageDescription: "ChravelApp needs access to your photo library so you can upload photos and videos to trip chats and shared albums.",
+              NSPhotoLibraryAddUsageDescription: "ChravelApp needs permission to save trip photos and videos to your library when you choose to download media.",
+              NSLocationWhenInUseUsageDescription: "ChravelApp uses your location (only while you're using the app) for optional location sharing and to help coordinate meetups during a trip.",
+              NSMicrophoneUsageDescription: "ChravelApp uses your microphone for AI Concierge voice conversations when you tap the mic.",
+              NSSpeechRecognitionUsageDescription: "ChravelApp uses speech recognition to transcribe your voice input for AI Concierge and chat dictation.",
               ITSAppUsesNonExemptEncryption: false,
-              // Home-screen name must match the App Store listing title "Chravel"
-              // (store.config.json) to avoid a Guideline 2.3.7 name-mismatch nit.
-              CFBundleDisplayName: "Chravel",
+              // Home-screen name; kept consistent with the store listing title
+              // "ChravelApp" (store.config.json) — Guideline 2.3.7 name parity.
+              CFBundleDisplayName: "ChravelApp",
         },
             associatedDomains: ["applinks:chravel.app", "applinks:www.chravel.app", "webcredentials:chravel.app"],
             entitlements: {
@@ -222,7 +222,7 @@ module.exports = ({ config }) => ({
               [
                 "expo-audio",
           {
-                  microphonePermission: "Chravel needs microphone access for voice conversations with AI Concierge",
+                  microphonePermission: "ChravelApp needs microphone access for voice conversations with AI Concierge",
                   // Chravel only records / plays audio in the FOREGROUND (voice
                   // notes + AI Concierge TTS). Disabling these keeps expo-audio
                   // from adding the "audio" UIBackgroundMode (Guideline 2.5.4)

@@ -55,7 +55,7 @@ first) and again as an **update** over the prior version.
 - [ ] Reactions/confirmations produce haptic feedback.
 
 ## 8. Resilience / offline (Guideline 4.2 — not a blank-screen wrapper)
-- [ ] Enable Airplane Mode and cold-launch → **ErrorScreen** ("Can't reach Chravel") with a working
+- [ ] Enable Airplane Mode and cold-launch → **ErrorScreen** ("Can't reach ChravelApp") with a working
       **Retry**, NOT a blank white screen.
 - [ ] Restore network → Retry loads the app.
 - [ ] Background the app for several minutes, return → session persists (no forced re-login).
@@ -65,7 +65,7 @@ first) and again as an **update** over the prior version.
 - [ ] Complete deletion → signed out; data gone; (Apple users) app removed from Settings → Apple ID.
 
 ## 10. Metadata / review parity (Guideline 2.3)
-- [ ] Home-screen app name reads **"Chravel"** (matches the App Store listing title).
+- [ ] Home-screen app name reads **"ChravelApp"** (matches the App Store listing title).
 - [ ] `store.config.json` review contact `phone` is a **real, reachable** number (NOT the
       `+1-555-000-0000` placeholder) and the demo account `demo@chravel.app` signs in cleanly.
 
@@ -73,4 +73,4 @@ first) and again as an **update** over the prior version.
 
 ### Sign-off
 Record device, OS version, build number, and pass/fail per section before submitting. Any FAIL in
-sections 2, 3, or 9 is a hard blocker — those are the guidelines Chravel has been rejected under.
+sections 2, 3, or 9 is a hard blocker — those are the guidelines ChravelApp has been rejected under.

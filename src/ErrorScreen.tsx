@@ -11,7 +11,7 @@ export function ErrorScreen({ onRetry }: ErrorScreenProps) {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
-      <Text style={styles.title}>Can't reach Chravel</Text>
+      <Text style={styles.title}>Can't reach ChravelApp</Text>
       <Text style={styles.body}>
         Check your internet connection and try again.
       </Text>
