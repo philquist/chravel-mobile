@@ -10,10 +10,16 @@ Apple sheet** (`ASAuthorization`) in the shell and authenticate the web app with
 
 | Piece | Repo | Status |
 |---|---|---|
-| `window.ChravelNative.signInWithApple()` native bridge | **chravel-mobile** | ✅ Added (this change) — `src/appleAuth.ts`, `src/bridge.ts`, `src/ChravelWebView.tsx` |
-| `attemptNativeAppleSignIn()` → `signInWithIdToken` + web OAuth fallback | **chravel-web** | ✅ Already shipped (PR #746) |
-| `exchange-apple-code` edge function (native code → Apple refresh token) | **ChravelApp / Supabase** | ⏳ Apply `functions/exchange-apple-code/index.ts` from this folder |
-| Forward `authorizationCode` to `exchange-apple-code` after native sign-in | **chravel-web** | ⏳ Small addition (see below) |
+| `window.ChravelNative.signInWithApple()` native bridge | **chravel-mobile** | ✅ Added — `src/appleAuth.ts`, `src/bridge.ts`, `src/ChravelWebView.tsx` |
+| `attemptNativeAppleSignIn()` → `signInWithIdToken` + web OAuth fallback | **chravel-web** | ✅ Shipped (PR #746) |
+| Forward native `authorizationCode` to `store-apple-token` | **chravel-web** | ✅ Shipped (PR #746) — `src/hooks/auth/captureAppleToken.ts` (`captureAppleAuthorizationCode`) |
+| `store-apple-token` performs the server-side `authorizationCode → refresh_token` exchange | **ChravelApp / Supabase** | ✅ Deployed — `store-apple-token` **v27** (Chravel project `jmjiyekmxwsxkfnqwyaa`) |
+| Apple `.p8` edge secrets | **ChravelApp / Supabase** | ⏳ **Must be set** (see below) — until then the exchange no-ops gracefully |
+
+> **Design note:** there is **no** separate `exchange-apple-code` function. chravel-web
+> already forwards the native code to the existing `store-apple-token`, which now completes
+> the exchange inline. (An earlier draft proposed a standalone function; it was superseded
+> and removed.)
 
 ## Bridge contract (implemented in chravel-mobile)
 
@@ -23,7 +29,7 @@ Apple sheet** (`ASAuthorization`) in the shell and authenticate the web app with
 Promise<{
   identityToken: string;
   rawNonce: string;          // RAW nonce; shell already sent SHA256(rawNonce) to Apple
-  authorizationCode?: string; // forward to exchange-apple-code for revocation capture
+  authorizationCode?: string; // forwarded to store-apple-token for revocation capture
   email?: string;            // first authorization only
   fullName?: string;         // first authorization only
 }>
@@ -39,49 +45,42 @@ The web passes `identityToken` + `rawNonce` to
 Supabase re-hashes the raw nonce and matches it against the id-token's `nonce`
 claim.
 
-## Why `exchange-apple-code` is required (Guideline 5.1.1(v))
+## Why the server-side exchange is required (Guideline 5.1.1(v))
 
 The id-token flow does **not** yield Supabase's `provider_refresh_token`, so the
 existing `store-apple-token` capture has nothing to persist and account-deletion
-revocation would silently no-op. `exchange-apple-code` performs the Apple
-authorization-code → refresh-token exchange **server-side** (reusing
+revocation would silently no-op. The native bridge therefore also returns the
+one-time `authorizationCode`; chravel-web forwards it to `store-apple-token`,
+which exchanges it server-side (`POST appleid.apple.com/auth/token`, reusing
 `_shared/appleClientSecret.ts`) and stores the encrypted refresh token in
-`apple_auth_tokens`, so `delete-account` / `process-account-deletions` keep
-revoking via `appleid.apple.com/auth/revoke` unchanged.
+`apple_auth_tokens`. `delete-account` / `process-account-deletions` then revoke
+via `appleid.apple.com/auth/revoke` unchanged.
 
-## chravel-web change needed (small)
+The exchange branch in `store-apple-token/index.ts` degrades gracefully: if the
+Apple `.p8` secrets are missing it returns `{ success: true, skipped:
+'native_exchange_unavailable' }` and never blocks sign-in.
 
-After a **successful native** Apple sign-in (i.e. `attemptNativeAppleSignIn`
-returned `handled:true`), call the new function with the captured code:
+## Remaining action: set the Apple `.p8` edge secrets
 
-```ts
-// once the signInWithIdToken session exists and we have a bearer token:
-if (native.handled && native.authorizationCode) {
-  await supabase.functions.invoke('exchange-apple-code', {
-    body: { authorizationCode: native.authorizationCode },
-  });
-}
-```
+In Dashboard → Project `jmjiyekmxwsxkfnqwyaa` → Edge Functions → Secrets (the
+`.p8` must NEVER be committed):
 
-This mirrors how the web OAuth path calls `store-apple-token` today. It is
-best-effort: a failure must not block sign-in.
+| Secret | Value |
+|---|---|
+| `APPLE_P8_PRIVATE_KEY` | full PEM of `AuthKey_<KeyID>.p8` (Sign in with Apple key) |
+| `APPLE_KEY_ID` | the 10-char Key ID for that `.p8` |
+| `APPLE_TEAM_ID` | `2T6WY43H3X` |
+| `APPLE_CLIENT_ID` | `com.chravel.app` (native uses the bundle id as the client) |
 
-## Deploy order
+`APPLE_TOKEN_ENCRYPTION_KEY` is already referenced by the deployed function.
 
-1. Apply `functions/exchange-apple-code/index.ts` to ChravelApp and deploy it
-   (`verify_jwt: true`). Secrets are the **same** ones `store-apple-token` /
-   revocation already use — no new secrets:
-   `APPLE_P8_PRIVATE_KEY`, `APPLE_KEY_ID`, `APPLE_TEAM_ID`, `APPLE_CLIENT_ID`
-   (= `com.chravel.app`), `APPLE_TOKEN_ENCRYPTION_KEY`.
-2. Ship the chravel-web `exchange-apple-code` invoke above.
-3. Ship the chravel-mobile build with the native bridge.
-
-## Sandbox verification
+## Sandbox verification (after secrets are set)
 
 1. iOS device → "Continue with Apple" → confirm a **native Apple sheet** (no
    Safari) → lands authenticated.
-2. `select user_id from public.apple_auth_tokens;` → one `enc:v1:` row for the
-   native sign-in (proves the code exchange ran).
+2. `select user_id, created_at from public.apple_auth_tokens;` → one `enc:v1:`
+   row for the native sign-in, plus a `security_audit_log` `apple_token_stored`
+   row with `source: 'native_code_exchange'` (proves the exchange ran).
 3. Delete the account → edge logs show `appleid.apple.com/auth/revoke` → 200;
    `apple_auth_tokens` row gone; Chravel removed under Settings → Apple ID →
    Sign in with Apple.

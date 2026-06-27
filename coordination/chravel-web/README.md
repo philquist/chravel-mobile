@@ -31,8 +31,7 @@ functions/_shared/appleClientSecret.ts            Mint ES256 client-secret JWT f
 functions/_shared/appleRevoke.ts                  revokeAppleForUser() — revoke + audit + delete row
 functions/_shared/gmailTokenCrypto.ts             AES-GCM crypto (EXACT copy of existing file — reuse, don't fork)
 functions/_shared/cors.ts                         Copy of existing shared CORS (for self-contained bundles)
-functions/store-apple-token/index.ts              NEW function: store the token at sign-in (verify_jwt)
-functions/exchange-apple-code/index.ts            NEW function: native Apple code → refresh token (verify_jwt) — see NATIVE_APPLE_SIGNIN.md
+functions/store-apple-token/index.ts              Stores the token at sign-in; ALSO exchanges the native Apple authorizationCode → refresh token (deployed v27) — see NATIVE_APPLE_SIGNIN.md
 functions/process-account-deletions/index.ts      MODIFIED: revoke before Step 7 + fixed audit insert
 functions/delete-account/index.ts                 MODIFIED: revoke before Step 6
 functions/tests/apple.test.ts                     Deno tests (crypto round-trip + client-secret JWT)

@@ -129,11 +129,15 @@ which chravel-web already consumes (PR #746, `attemptNativeAppleSignIn` → `sup
       nonce + `identityToken` + `authorizationCode`. Android keeps the existing OAuth path (method absent).
 - [x] Add `expo-apple-authentication` + `expo-crypto` deps and the `expo-apple-authentication` config
       plugin (entitlement `com.apple.developer.applesignin` + `usesAppleSignIn` were already declared).
-- [ ] **Resolves the 5.1.1(v) regression that previously blocked this**: native `signInWithIdToken` yields
-      no `provider_refresh_token`. The bridge now returns `authorizationCode`; apply the new
-      `coordination/chravel-web/functions/exchange-apple-code/index.ts` edge function (server-side
-      authorization-code → refresh-token exchange, reuses `appleClientSecret.ts`) and have chravel-web
-      forward `authorizationCode` to it. See `coordination/chravel-web/NATIVE_APPLE_SIGNIN.md`.
+- [x] **Resolves the 5.1.1(v) regression that previously blocked this**: native `signInWithIdToken` yields
+      no `provider_refresh_token`. The bridge returns `authorizationCode`; chravel-web already forwards it to
+      `store-apple-token` (PR #746, `captureAppleAuthorizationCode`), and `store-apple-token` now performs the
+      server-side authorization-code → refresh-token exchange inline (reuses `appleClientSecret.ts`).
+      **Deployed: `store-apple-token` v27** (Chravel project `jmjiyekmxwsxkfnqwyaa`, 2026-06-27). No separate
+      `exchange-apple-code` function. See `coordination/chravel-web/NATIVE_APPLE_SIGNIN.md`.
+- [ ] **Set the Apple `.p8` edge secrets** so the exchange can run — until then it no-ops gracefully
+      (`skipped: 'native_exchange_unavailable'`, sign-in unaffected): `APPLE_P8_PRIVATE_KEY`, `APPLE_KEY_ID`,
+      `APPLE_TEAM_ID=2T6WY43H3X`, `APPLE_CLIENT_ID=com.chravel.app` (the `.p8` must never be committed).
 - [ ] **Verify on physical iPhone + iPad (iOS 26+)**: "Continue with Apple" shows a NATIVE Apple sheet
       (no Safari) → lands authenticated. Google still uses the existing `chravel://` OAuth path.
 
