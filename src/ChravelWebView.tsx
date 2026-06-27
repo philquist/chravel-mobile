@@ -211,7 +211,10 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
       if (isReadyRef.current) {
         handleIncomingPath(path);
       } else {
-        initialUrlRef.current = path;
+        initialUrlRef.current = preferExistingDeferredPath(
+          initialUrlRef.current,
+          path,
+        );
       }
     });
     return unsub;
@@ -554,17 +557,15 @@ ${buildWebEvent("chravel:push-unregistered", { success: true })}`,
           const inAuthReturnFlow = isAuthReturnFlowUrl(url);
 
           // Finish OAuth only after leaving every auth bootstrap / callback
-          // surface. Do not apply a deferred notification/deep-link path when
-          // transitioning /auth → /auth-callback — that would navigate away
-          // from the PKCE exchange before the session is hydrated.
-          if (
-            isAuthRedirectRef.current &&
-            !inAuthReturnFlow &&
-            url.startsWith(WEB_APP_URL)
-          ) {
-            isAuthRedirectRef.current = false;
-            clearLoadingFallbackTimer();
-            setIsLoading(false);
+          // surface. Do not apply a deferred notification/deep-link path while
+          // still on /auth or /auth-callback — e.g. /auth → /auth-callback must
+          // not yank the WebView off the PKCE exchange before session hydration.
+          if (!inAuthReturnFlow && url.startsWith(WEB_APP_URL)) {
+            if (isAuthRedirectRef.current) {
+              isAuthRedirectRef.current = false;
+              clearLoadingFallbackTimer();
+              setIsLoading(false);
+            }
 
             if (initialUrlRef.current) {
               const pending = initialUrlRef.current;

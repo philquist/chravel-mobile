@@ -24,13 +24,11 @@ export function evaluateReadyDecision({
 
   if (pendingPath) {
     const shouldDeferPendingPath =
-      isAuthRedirect &&
-      inAuthReturnFlow &&
-      !pendingPath.startsWith("/auth-callback");
+      inAuthReturnFlow && !pendingPath.startsWith("/auth-callback");
 
     if (shouldDeferPendingPath) {
       return {
-        keepLoadingOverlay: true,
+        keepLoadingOverlay: isAuthRedirect && inAuthReturnFlow,
         applyPathNow: null,
         deferPendingPath: true,
       };
