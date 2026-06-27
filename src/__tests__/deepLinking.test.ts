@@ -266,4 +266,13 @@ describe("preferExistingDeferredPath", () => {
   it("uses the linking path when nothing is deferred yet", () => {
     expect(preferExistingDeferredPath(null, "/trip/t1")).toBe("/trip/t1");
   });
+
+  it("keeps the richer notification path when a generic link event arrives second", () => {
+    expect(
+      preferExistingDeferredPath(
+        "/trip/t1?tab=chat&thread=th1",
+        "/trip/t1?tab=chat",
+      ),
+    ).toBe("/trip/t1?tab=chat&thread=th1");
+  });
 });

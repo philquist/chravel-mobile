@@ -49,6 +49,18 @@ describe("evaluateReadyDecision", () => {
     expect(result.applyPathNow).toBeNull();
   });
 
+  it("defers notification paths on /auth even before OAuth redirect is flagged", () => {
+    const result = evaluateReadyDecision({
+      isAuthRedirect: false,
+      currentUrl: "https://chravel.app/auth?app_context=native",
+      pendingPath: "/trip/abc?tab=chat&thread=th1",
+    });
+
+    expect(result.keepLoadingOverlay).toBe(false);
+    expect(result.deferPendingPath).toBe(true);
+    expect(result.applyPathNow).toBeNull();
+  });
+
   it("applies deferred route after leaving the auth return flow", () => {
     const result = evaluateReadyDecision({
       isAuthRedirect: true,
