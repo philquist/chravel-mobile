@@ -1,4 +1,4 @@
-Chravel is a group travel planning app. Organize trips with your group using shared tools for chat, calendar, expenses, and an AI travel assistant.
+ChravelApp is a group travel planning app. Organize trips with your group using shared tools for chat, calendar, expenses, and an AI travel assistant.
 
 Features
 
@@ -13,9 +13,9 @@ Features
 Account sign-in supports email, Google, and Apple.
 
 Subscriptions
-Chravel offers optional subscription tiers (Explorer and Frequent Chraveler) that unlock additional features. Subscriptions auto-renew and can be managed in your device store account settings.
+ChravelApp offers optional subscription tiers (Explorer and Frequent Chraveler) that unlock additional features. Subscriptions auto-renew and can be managed in your device store account settings.
 
 Privacy
-Chravel does not use third-party advertising trackers. Privacy Policy: https://chravel.app/privacy. Terms of Use: https://chravel.app/terms.
+ChravelApp does not use third-party advertising trackers. Privacy Policy: https://chravel.app/privacy. Terms of Use: https://chravel.app/terms.
 
 Contact: support@chravel.app

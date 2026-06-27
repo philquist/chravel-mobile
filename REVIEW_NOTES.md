@@ -1,4 +1,4 @@
-# App Store Review Notes — Chravel
+# App Store Review Notes — ChravelApp
 
 ## Demo Account
 

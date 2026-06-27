@@ -2,6 +2,7 @@ import {
   parseBridgeMessage,
   buildWebEvent,
   buildPushPermissionResponse,
+  buildAppleSignInResponse,
   buildClearPushRegistrationCache,
   buildInjectedJS,
   buildNativeBootstrapJS,
@@ -138,6 +139,19 @@ describe("parseBridgeMessage", () => {
     ).toBeNull();
   });
 
+  it("parses apple:signin with a requestId", () => {
+    expect(
+      parseBridgeMessage(JSON.stringify({ type: "apple:signin", requestId: "as_1" }))
+    ).toEqual({ type: "apple:signin", requestId: "as_1" });
+  });
+
+  it("returns null for apple:signin without a string requestId", () => {
+    expect(parseBridgeMessage(JSON.stringify({ type: "apple:signin" }))).toBeNull();
+    expect(
+      parseBridgeMessage(JSON.stringify({ type: "apple:signin", requestId: 7 }))
+    ).toBeNull();
+  });
+
   it("parses openAppSettings and openNotificationSettings messages", () => {
     expect(parseBridgeMessage(JSON.stringify({ type: "openAppSettings" }))).toEqual({
       type: "openAppSettings",
@@ -161,6 +175,29 @@ describe("buildPushPermissionResponse", () => {
     expect(result).toContain('"cp_42"');
     expect(result).toContain('"granted"');
     expect(result).toEndWith("true;");
+  });
+});
+
+describe("buildAppleSignInResponse", () => {
+  it("builds a JS string that resolves the signInWithApple promise with a credential", () => {
+    const result = buildAppleSignInResponse("as_42", {
+      ok: true,
+      credential: { identityToken: "id-tok", rawNonce: "raw-nonce" },
+    });
+    expect(result).toContain("window.__chravelResolveAppleSignIn");
+    expect(result).toContain('"as_42"');
+    expect(result).toContain('"identityToken":"id-tok"');
+    expect(result).toContain('"rawNonce":"raw-nonce"');
+    expect(result).toEndWith("true;");
+  });
+
+  it("builds a JS string that rejects on failure", () => {
+    const result = buildAppleSignInResponse("as_43", {
+      ok: false,
+      error: "ERR_REQUEST_CANCELED",
+    });
+    expect(result).toContain('"ok":false');
+    expect(result).toContain('"error":"ERR_REQUEST_CANCELED"');
   });
 });
 
@@ -220,6 +257,20 @@ describe("buildInjectedJS", () => {
     expect(result).toContain("openNotificationSettings: function()");
     expect(result).toContain('type: "openAppSettings"');
     expect(result).toContain('type: "openNotificationSettings"');
+  });
+
+  it("injects the native Apple Sign In bridge on iOS", () => {
+    const result = buildInjectedJS("ios");
+    expect(result).toContain("signInWithApple: function()");
+    expect(result).toContain("window.__chravelResolveAppleSignIn");
+    expect(result).toContain("type: 'apple:signin'");
+  });
+
+  it("does NOT inject the Apple Sign In bridge on Android (web keeps OAuth fallback)", () => {
+    const result = buildInjectedJS("android");
+    expect(result).not.toContain("signInWithApple");
+    expect(result).not.toContain("__chravelResolveAppleSignIn");
+    expect(result).not.toContain("apple:signin");
   });
 
   it("emits syntactically valid injected JavaScript", () => {
@@ -464,6 +515,86 @@ describe("Capacitor PushNotifications shim (runtime behavior)", () => {
     await plugin.removeAllListeners();
     fireToken({ token: "should-not-deliver" });
     expect(received).toEqual([]);
+  });
+});
+
+describe("native Apple Sign In bridge (runtime behavior)", () => {
+  class FakeEvent {
+    type: string;
+    constructor(type: string) {
+      this.type = type;
+    }
+  }
+  class FakeCustomEvent {
+    type: string;
+    detail: unknown;
+    constructor(type: string, init?: { detail?: unknown }) {
+      this.type = type;
+      this.detail = init ? init.detail : undefined;
+    }
+  }
+
+  function installBootstrap(platform: string) {
+    const eventListeners: Record<string, Array<(e: unknown) => void>> = {};
+    const postMessage = jest.fn();
+    const win: Record<string, unknown> = {
+      ReactNativeWebView: { postMessage },
+      addEventListener: (name: string, cb: (e: unknown) => void) => {
+        (eventListeners[name] = eventListeners[name] || []).push(cb);
+      },
+      dispatchEvent: () => true,
+    };
+    const js = buildNativeBootstrapJS(platform);
+    // eslint-disable-next-line no-new-func
+    new Function("window", "Event", "CustomEvent", js)(win, FakeEvent, FakeCustomEvent);
+    return { win, postMessage };
+  }
+
+  it("exposes signInWithApple on iOS and posts apple:signin with a requestId", () => {
+    const { win, postMessage } = installBootstrap("ios");
+    const native = win.ChravelNative as { signInWithApple?: () => Promise<unknown> };
+    expect(typeof native.signInWithApple).toBe("function");
+
+    native.signInWithApple!();
+    const sent = JSON.parse(postMessage.mock.calls[0][0]);
+    expect(sent.type).toBe("apple:signin");
+    expect(typeof sent.requestId).toBe("string");
+  });
+
+  it("resolves the signInWithApple promise when native injects the credential", async () => {
+    const { win, postMessage } = installBootstrap("ios");
+    const native = win.ChravelNative as { signInWithApple: () => Promise<unknown> };
+    const pending = native.signInWithApple();
+
+    const sent = JSON.parse(postMessage.mock.calls[0][0]);
+    const credential = { identityToken: "id-tok", rawNonce: "raw", authorizationCode: "code" };
+    (win.__chravelResolveAppleSignIn as (id: string, r: unknown) => void)(sent.requestId, {
+      ok: true,
+      credential,
+    });
+
+    await expect(pending).resolves.toEqual(credential);
+  });
+
+  it("rejects the signInWithApple promise on a failure result", async () => {
+    const { win, postMessage } = installBootstrap("ios");
+    const native = win.ChravelNative as { signInWithApple: () => Promise<unknown> };
+    const pending = native.signInWithApple();
+
+    const sent = JSON.parse(postMessage.mock.calls[0][0]);
+    (win.__chravelResolveAppleSignIn as (id: string, r: unknown) => void)(sent.requestId, {
+      ok: false,
+      error: "ERR_REQUEST_CANCELED",
+    });
+
+    await expect(pending).rejects.toThrow("ERR_REQUEST_CANCELED");
+  });
+
+  it("does not expose signInWithApple on Android", () => {
+    const { win } = installBootstrap("android");
+    const native = win.ChravelNative as { signInWithApple?: () => Promise<unknown> };
+    expect(native.signInWithApple).toBeUndefined();
+    expect(win.__chravelResolveAppleSignIn).toBeUndefined();
   });
 });
 

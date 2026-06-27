@@ -58,7 +58,7 @@ export function TermsAgreement({ onComplete }: TermsAgreementProps) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.title}>Welcome to Chravel</Text>
+        <Text style={styles.title}>Welcome to ChravelApp</Text>
         <Text style={styles.body}>
           Before creating your account, please review and agree to our terms.
         </Text>
@@ -71,7 +71,7 @@ export function TermsAgreement({ onComplete }: TermsAgreementProps) {
           </TouchableOpacity>
           <View style={styles.checkboxLabelRow}>
             <TouchableOpacity onPress={toggleAgreed} activeOpacity={0.7}>
-              <Text style={styles.checkboxLabel}>I agree to the Chravel </Text>
+              <Text style={styles.checkboxLabel}>I agree to the ChravelApp </Text>
             </TouchableOpacity>
             <Text
               style={[styles.checkboxLabel, styles.link]}

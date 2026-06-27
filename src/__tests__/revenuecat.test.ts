@@ -91,6 +91,19 @@ describe("revenuecat", () => {
     expect(mockPurchases.getOfferings).toHaveBeenCalledTimes(2);
   });
 
+  it("links the Supabase user to RevenueCat via Purchases.logIn", async () => {
+    await configureRevenueCat();
+    await identifyUser("supabase-user-42");
+    expect(mockPurchases.logIn).toHaveBeenCalledWith("supabase-user-42");
+  });
+
+  it("no-ops identifyUser when RevenueCat is not configured", async () => {
+    // beforeEach reset the module, and we deliberately do NOT call
+    // configureRevenueCat() here, so isConfigured stays false.
+    await identifyUser("user-x");
+    expect(mockPurchases.logIn).not.toHaveBeenCalled();
+  });
+
   it("should return error if package not found", async () => {
     mockPurchases.getOfferings.mockResolvedValue({
       current: {

@@ -1,5 +1,10 @@
 # Apple Sign-in token revocation on account deletion — chravel-web coordination package
 
+> **See also `NATIVE_APPLE_SIGNIN.md`** in this folder — the native Sign in with Apple
+> (Guideline 2.1(a)) bridge added in chravel-mobile, and the `exchange-apple-code` function
+> that keeps the revocation flow below working for native sign-ins.
+
+
 App Store Guideline **5.1.1(v)**: an app offering Sign in with Apple must revoke the Apple
 token when the user deletes their account. This package adds that to the shared Chravel backend.
 
@@ -26,7 +31,7 @@ functions/_shared/appleClientSecret.ts            Mint ES256 client-secret JWT f
 functions/_shared/appleRevoke.ts                  revokeAppleForUser() — revoke + audit + delete row
 functions/_shared/gmailTokenCrypto.ts             AES-GCM crypto (EXACT copy of existing file — reuse, don't fork)
 functions/_shared/cors.ts                         Copy of existing shared CORS (for self-contained bundles)
-functions/store-apple-token/index.ts              NEW function: store the token at sign-in (verify_jwt)
+functions/store-apple-token/index.ts              Stores the token at sign-in; ALSO exchanges the native Apple authorizationCode → refresh token (deployed v27) — see NATIVE_APPLE_SIGNIN.md
 functions/process-account-deletions/index.ts      MODIFIED: revoke before Step 7 + fixed audit insert
 functions/delete-account/index.ts                 MODIFIED: revoke before Step 6
 functions/tests/apple.test.ts                     Deno tests (crypto round-trip + client-secret JWT)

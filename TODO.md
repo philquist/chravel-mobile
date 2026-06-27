@@ -120,13 +120,26 @@ Play Console warns that a new build "no longer supports ~18,500 devices that wer
       manual bump. Build + submit manually (EAS dashboard "Run workflow" or `eas workflow:run` / `eas build`);
       no longer auto-built on merge to main.
 
-### Considered but NOT done — native Sign in with Apple (`expo-apple-authentication`)
-- [ ] Evaluated for build 53 and intentionally deferred. Native ASAuthorization + chravel-web
-      `supabase.auth.signInWithIdToken` would skip the browser entirely, BUT it does not yield a Supabase
-      `provider_refresh_token`, which would break the Apple token-revocation-on-account-deletion flow
-      (5.1.1(v), below) that captures that token via `store-apple-token`. The `chravel://` callback
-      hardening fixes 2.1(a) without that regression and needs no coordinated web change. Revisit only if
-      Apple-token capture also moves to a server-side authorization-code exchange.
+### Native Sign in with Apple (`expo-apple-authentication`) — IMPLEMENTED for build 56+ (2.1(a))
+After build 55 was rejected AGAIN under 2.1(a) ("unable to leverage Sign in with Apple … no action can
+occur"), the browser OAuth round-trip was abandoned for iOS in favor of the native ASAuthorization sheet,
+which chravel-web already consumes (PR #746, `attemptNativeAppleSignIn` → `supabase.auth.signInWithIdToken`).
+- [x] Add `window.ChravelNative.signInWithApple()` bridge (iOS only) — `src/appleAuth.ts`, `src/bridge.ts`,
+      `src/ChravelWebView.tsx`. Generates a raw nonce, sends `SHA256(rawNonce)` to Apple, returns the raw
+      nonce + `identityToken` + `authorizationCode`. Android keeps the existing OAuth path (method absent).
+- [x] Add `expo-apple-authentication` + `expo-crypto` deps and the `expo-apple-authentication` config
+      plugin (entitlement `com.apple.developer.applesignin` + `usesAppleSignIn` were already declared).
+- [x] **Resolves the 5.1.1(v) regression that previously blocked this**: native `signInWithIdToken` yields
+      no `provider_refresh_token`. The bridge returns `authorizationCode`; chravel-web already forwards it to
+      `store-apple-token` (PR #746, `captureAppleAuthorizationCode`), and `store-apple-token` now performs the
+      server-side authorization-code → refresh-token exchange inline (reuses `appleClientSecret.ts`).
+      **Deployed: `store-apple-token` v27** (Chravel project `jmjiyekmxwsxkfnqwyaa`, 2026-06-27). No separate
+      `exchange-apple-code` function. See `coordination/chravel-web/NATIVE_APPLE_SIGNIN.md`.
+- [ ] **Set the Apple `.p8` edge secrets** so the exchange can run — until then it no-ops gracefully
+      (`skipped: 'native_exchange_unavailable'`, sign-in unaffected): `APPLE_P8_PRIVATE_KEY`, `APPLE_KEY_ID`,
+      `APPLE_TEAM_ID=2T6WY43H3X`, `APPLE_CLIENT_ID=com.chravel.app` (the `.p8` must never be committed).
+- [ ] **Verify on physical iPhone + iPad (iOS 26+)**: "Continue with Apple" shows a NATIVE Apple sheet
+      (no Safari) → lands authenticated. Google still uses the existing `chravel://` OAuth path.
 
 ### Apple token revocation on account deletion (App Store 5.1.1(v))
 Backend lives in the shared "Chravel" Supabase project (`jmjiyekmxwsxkfnqwyaa`) / ChravelApp.

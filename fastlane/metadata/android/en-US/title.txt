@@ -1,1 +1,1 @@
-Chravel: Group Trip Planning
+ChravelApp: Group Trip Planning
