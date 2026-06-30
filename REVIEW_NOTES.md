@@ -9,6 +9,17 @@ Password: DemoTrip2025!
 
 This account has pre-populated data to showcase all features.
 
+## Resubmission notes (addresses Submission 31f5c251)
+
+- **Sign in with Apple (Guideline 2.1(a))** — On iOS this uses the **native Apple sheet**
+  (`ASAuthorization` / Face ID / Touch ID), not a web page. Tap **"Continue with Apple"** on the
+  sign-in screen; the native sheet appears and completes in-app with no Safari round-trip. Email and
+  Google sign-in are also available; the demo account above signs in with email.
+- **In-App Purchases (Guideline 2.1(b))** — All subscription and Trip Pass products are sold via
+  **In-App Purchase (RevenueCat / StoreKit)** and are submitted for review **with this build**. To
+  view them: sign in with the demo account → **Settings → Billing / Pro**. The paywall loads live
+  StoreKit prices; no external (Stripe) checkout is reachable on iOS.
+
 ## Native Integrations
 
 This app uses a WebView to deliver our web platform alongside the following native capabilities that require a native app:
