@@ -141,6 +141,27 @@ which chravel-web already consumes (PR #746, `attemptNativeAppleSignIn` → `sup
 - [ ] **Verify on physical iPhone + iPad (iOS 26+)**: "Continue with Apple" shows a NATIVE Apple sheet
       (no Safari) → lands authenticated. Google still uses the existing `chravel://` OAuth path.
 
+### App Store v2.0 build 58 rejection fixes (Submission 31f5c251-…, reviewed 2026-06-30, iPad Air M3 / iPadOS 26.5)
+Full step-by-step runbook + copy-paste prompts: **`docs/APP_STORE_REMEDIATION.md`**.
+- **Guideline 2.1(a)** — "Unable to exchange external code: c892" on tapping Sign in with Apple. This is the
+  **web OAuth (PKCE) fallback** failing, i.e. the native ASAuthorization sheet was NOT used on the review
+  device (native `signInWithIdToken` cannot emit this error). The chravel-mobile native bridge is correct
+  and complete — the fix is **outside this repo**:
+  - [ ] **Provisioning (most likely one-shot fix)**: confirm the production iOS profile actually carries the
+        **"Sign in with Apple"** capability (`eas credentials` / expo.dev → Credentials → iOS). If missing,
+        `signInAsync()` throws → silent fallback to the broken web flow. (Prompt E #2.)
+  - [ ] **chravel-web** (`Chravel-Inc/chravel-web`, served at chravel.app): ensure the iOS-native Apple button
+        uses ONLY `window.ChravelNative.signInWithApple()` → `signInWithIdToken` and never falls through to
+        browser OAuth; fix `/auth-callback` `exchangeCodeForSession` so it never dead-ends. (Prompt A.)
+  - [ ] **Supabase**: redirect-URL allow list must include `chravel://auth-callback`. (Prompt B.)
+- **Guideline 2.1(b)** — IAP products "have not been submitted for review." This is an **App Store Connect
+  submission** task, not repo code (no product IDs live here; offerings come from RevenueCat at runtime):
+  - [ ] **App Store Connect**: create the IAPs matching the paywall, add the required **App Review screenshot**,
+        ATTACH them to the version, and **submit them with the binary**. (Prompts C + F.)
+  - [ ] **RevenueCat**: map products → entitlements (`chravel_explorer` / `chravel_frequent_chraveler`) + a
+        "current" offering; get the iOS `appl_…` API key. (Prompt D.)
+  - [ ] **EAS**: set `REVENUECAT_IOS_API_KEY` (+ Android) env vars; build + submit. (Prompt E.)
+
 ### Apple token revocation on account deletion (App Store 5.1.1(v))
 Backend lives in the shared "Chravel" Supabase project (`jmjiyekmxwsxkfnqwyaa`) / ChravelApp.
 Canonical source committed here: `coordination/chravel-web/` (sync into ChravelApp to avoid drift).
