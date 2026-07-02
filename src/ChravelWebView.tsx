@@ -365,7 +365,10 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
             // Intentionally a no-op — do not steer to external payment.
           } else {
             await WebBrowser.openBrowserAsync(message.url, {
-              presentationStyle: WebBrowser.WebBrowserPresentationStyle.POPOVER,
+              // PAGE_SHEET (not POPOVER): a popover requires a non-nil source
+              // anchor on iPad and crashes/no-ops without one (expo #33995),
+              // while a page sheet presents safely on both iPhone and iPad.
+              presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
             });
           }
         }
@@ -528,7 +531,10 @@ ${buildWebEvent("chravel:push-unregistered", { success: true })}`,
             void openOAuthAuthSession(decision.externalUrlToOpen);
           } else {
             void WebBrowser.openBrowserAsync(decision.externalUrlToOpen, {
-              presentationStyle: WebBrowser.WebBrowserPresentationStyle.POPOVER,
+              // PAGE_SHEET (not POPOVER): a popover requires a non-nil source
+              // anchor on iPad and crashes/no-ops without one (expo #33995),
+              // while a page sheet presents safely on both iPhone and iPad.
+              presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
             });
           }
         } else {
