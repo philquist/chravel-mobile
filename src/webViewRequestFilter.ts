@@ -1,5 +1,10 @@
 const ALLOWED_WEB_HOSTS = new Set(["chravel.app", "www.chravel.app"]);
 
+/** True when `hostname` is one of the first-party chravel.app web hosts. */
+export function isChravelWebHost(hostname: string): boolean {
+  return ALLOWED_WEB_HOSTS.has(hostname);
+}
+
 const ALLOWED_HOSTS = [
   "supabase.co",
   "js.stripe.com",
