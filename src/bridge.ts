@@ -91,7 +91,10 @@ export interface AppleSignInCredential {
 
 export type AppleSignInResult =
   | { ok: true; credential: AppleSignInCredential }
-  | { ok: false; error: string };
+  // `code: "canceled"` = the user dismissed the native sheet. The injected
+  // resolver copies it onto the rejection Error so chravel-web can treat
+  // cancel as a no-op instead of falling back to browser OAuth (2.1(a)).
+  | { ok: false; error: string; code?: "canceled" };
 
 /**
  * Build a JS string that resolves (or rejects) the pending
@@ -148,7 +151,9 @@ export function buildNativeBootstrapJS(
         if (result && result.ok) {
           pending.resolve(result.credential);
         } else {
-          pending.reject(new Error(result && result.error ? String(result.error) : 'Apple sign-in failed'));
+          var err = new Error(result && result.error ? String(result.error) : 'Apple sign-in failed');
+          if (result && result.code) { err.code = String(result.code); }
+          pending.reject(err);
         }
       };
 `

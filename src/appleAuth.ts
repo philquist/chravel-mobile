@@ -61,6 +61,26 @@ export async function runNativeAppleSignIn(): Promise<AppleSignInCredential> {
   };
 }
 
+export type AppleSignInFailureCode = "canceled";
+
+/**
+ * Map a `runNativeAppleSignIn` failure to a machine-readable code for the web.
+ * expo-apple-authentication rejects with a CodedError whose `code` is
+ * `ERR_REQUEST_CANCELED` when the user dismisses the ASAuthorization sheet.
+ * Cancel must be distinguishable from real failures: chravel-web treats a
+ * `canceled` rejection as a no-op (stay on the sign-in screen) instead of
+ * falling back to the browser OAuth flow — the prior 2.1(a) rejection vector.
+ */
+export function getAppleSignInFailureCode(
+  error: unknown,
+): AppleSignInFailureCode | undefined {
+  const code = (error as { code?: unknown } | null)?.code;
+  if (code === "ERR_REQUEST_CANCELED" || code === "ERR_CANCELED") {
+    return "canceled";
+  }
+  return undefined;
+}
+
 /** 32 random bytes as a lowercase hex string — used as the raw OAuth nonce. */
 async function generateRawNonce(): Promise<string> {
   const bytes = await Crypto.getRandomBytesAsync(32);
