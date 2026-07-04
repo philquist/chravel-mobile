@@ -132,6 +132,17 @@ module.exports = ({ config }) => ({
                                                                                                         "NSPrivacyCollectedDataTypePurposeAppFunctionality",
                                                                                                       ],
                                                                                             },
+                                                                                            // AI Concierge voice: mic audio is streamed off-device (Gemini
+                                                                                            // Live via the web layer), so it is disclosed as collected.
+                                                                                            // Mirror this in the App Store Connect privacy label.
+                                                                                            {
+                                                                                                      NSPrivacyCollectedDataType: "NSPrivacyCollectedDataTypeAudioData",
+                                                                                                      NSPrivacyCollectedDataTypeLinked: true,
+                                                                                                      NSPrivacyCollectedDataTypeTracking: false,
+                                                                                                      NSPrivacyCollectedDataTypePurposes: [
+                                                                                                        "NSPrivacyCollectedDataTypePurposeAppFunctionality",
+                                                                                                      ],
+                                                                                            },
                                                                                                   ],
                                                                                                   NSPrivacyAccessedAPITypes: [
                                                                                             {
