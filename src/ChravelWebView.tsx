@@ -30,7 +30,7 @@ import {
   buildClearPushRegistrationCache,
   parseBridgeMessage,
 } from "./bridge";
-import { runNativeAppleSignIn } from "./appleAuth";
+import { runNativeAppleSignIn, getAppleSignInFailureCode } from "./appleAuth";
 import {
   registerForPushNotifications,
   checkPushPermission,
@@ -67,6 +67,7 @@ import {
   isBlockedPurchaseUrl,
 } from "./webViewRequestFilter";
 import { evaluateReadyDecision } from "./authRouting";
+import { isFatalHttpError } from "./httpError";
 
 interface ChravelWebViewProps {
   onError: () => void;
@@ -416,8 +417,11 @@ ${buildWebEvent("chravel:push-unregistered", { success: true })}`,
       case "apple:signin": {
         // Run the native Apple sheet (ASAuthorization) and settle the web's
         // signInWithApple() promise. Always inject a response — success or
-        // failure — so the awaiting web promise can't hang; on failure the web
-        // helper falls back to the browser OAuth flow.
+        // failure — so the awaiting web promise can't hang. On genuine
+        // failure the web helper falls back to the browser OAuth flow; a
+        // user CANCEL carries code:"canceled" and must be a web-side no-op
+        // (returning to the sign-in screen), never an OAuth fallback — that
+        // fallback flow is the prior 2.1(a) rejection vector.
         try {
           const credential = await runNativeAppleSignIn();
           webViewRef.current?.injectJavaScript(
@@ -431,6 +435,7 @@ ${buildWebEvent("chravel:push-unregistered", { success: true })}`,
             buildAppleSignInResponse(message.requestId, {
               ok: false,
               error: error instanceof Error ? error.message : "Apple sign-in failed",
+              code: getAppleSignInFailureCode(error),
             }),
           );
         }
@@ -574,7 +579,11 @@ ${buildWebEvent("chravel:push-unregistered", { success: true })}`,
         applicationNameForUserAgent={Platform.OS === "android" ? NATIVE_USER_AGENT_SUFFIX : undefined}
         mediaPlaybackRequiresUserAction={false}
         allowsInlineMediaPlayback={true}
-        geolocationEnabled={false}
+        // Android-only prop: lets the web app's navigator.geolocation reach the
+        // OS permission flow (ACCESS_FINE_LOCATION is declared). iOS ignores
+        // this — WKWebView geolocation is governed by
+        // NSLocationWhenInUseUsageDescription in app.config.js.
+        geolocationEnabled={true}
         sharedCookiesEnabled={true}
         thirdPartyCookiesEnabled={false}
         domStorageEnabled={true}
@@ -621,8 +630,20 @@ ${buildWebEvent("chravel:push-unregistered", { success: true })}`,
         }}
         onError={() => onError()}
         onHttpError={(syntheticEvent) => {
-          const { statusCode } = syntheticEvent.nativeEvent;
-          if (statusCode >= 500) onError();
+          const { statusCode, url } = syntheticEvent.nativeEvent;
+          // Fatal only for the main document on chravel.app (any ≥400) — a
+          // 403/404 on /auth strands the user on a browser error page with no
+          // retry. Sub-resource and third-party errors stay non-fatal (Android
+          // fires this event for every resource).
+          if (
+            isFatalHttpError({
+              statusCode,
+              url,
+              currentUrl: currentUrlRef.current,
+            })
+          ) {
+            onError();
+          }
         }}
         onContentProcessDidTerminate={() => {
           // WKWebView killed the content process (memory pressure). Reset

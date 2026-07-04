@@ -37,7 +37,7 @@ IDs live in this repo — offerings come from RevenueCat at runtime.
 | Supabase project (Chravel) | `jmjiyekmxwsxkfnqwyaa` |
 | RevenueCat entitlements | `chravel_explorer`, `chravel_frequent_chraveler` |
 | Web app repo (chravel.app) | `Chravel-Inc/chravel-web` |
-| Review demo account | `demo@chravel.app` / `DemoTrip2025!` |
+| Review demo account | `demo@chravelapp.com` / `DemoTrip2025!` |
 
 ## Execution order
 
@@ -121,7 +121,7 @@ IDs live in this repo — offerings come from RevenueCat at runtime.
 > I'm in App Store Connect for **ChravelApp** (`com.chravel.app`, Apple ID `6761122822`). The new build is uploaded. Finish the 2.1(b) fix by submitting the In-App Purchases **with** the binary:
 > 1. Open the app version being resubmitted (2.0, newest build) → select the new build.
 > 2. In the version page's **"In-App Purchases"** section, click "+" and **attach EVERY product** created earlier (`com.chravel.app.frequent.monthly`, `.explorer.annual`, `.frequent.annual`, `.pro.starter.monthly`, `.pro.growth.monthly`, `.trippass.explorer`, `.trippass.frequent`). This attach step is exactly what was missing.
-> 3. In **App Review Information**: confirm demo account `demo@chravel.app` / `DemoTrip2025!` and add the note: *"All subscription and Trip Pass products are sold via In-App Purchase (RevenueCat/StoreKit). To view them: sign in with the demo account → Settings → Billing / Pro."*
+> 3. In **App Review Information**: confirm demo account `demo@chravelapp.com` / `DemoTrip2025!` and add the note: *"All subscription and Trip Pass products are sold via In-App Purchase (RevenueCat/StoreKit). To view them: sign in with the demo account → Settings → Billing / Pro."*
 > 4. Confirm every IAP is "Ready to Submit" and attached, then **Submit for Review**. Report the final state of each product and the version's submission status.
 
 ---

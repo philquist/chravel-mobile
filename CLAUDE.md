@@ -45,6 +45,8 @@ This is the **native mobile shell only** — an Expo/React Native app (~1,500 li
 | `src/webViewRequestFilter.ts` | WebView navigation allowlist + OAuth-authorize URL detection |
 | `src/authUrl.ts` | Sign-in route detection (distinguishes `/auth` from substring look-alikes) |
 | `src/authRouting.ts` | Ready-state routing for OAuth callbacks + deferred paths; auth-surface mapping |
+| `src/loadWatchdog.ts` | 15s initial-load watchdog — guarantees the splash always yields to the app or the ErrorScreen |
+| `src/httpError.ts` | Main-document HTTP-error classification (4xx/5xx on chravel.app → ErrorScreen; sub-resources ignored) |
 | `src/haptics.ts` | Haptic feedback trigger |
 | `src/constants.ts` | URLs, entitlement IDs, push types |
 | `src/ErrorScreen.tsx` | Network error UI with retry |
@@ -78,7 +80,7 @@ Any changes here **must** be coordinated with the web app in `ChravelApp`.
 | `push:unregister` | — | Revoke push registration |
 | `push:checkPermissions` | `requestId` | Query push permission without prompting; native replies by resolving the `PushNotifications` shim promise (`{ receive }`) |
 | `push:requestPermissions` | `requestId` | Request push permission (OS prompt); native resolves the shim promise (`{ receive }`) |
-| `apple:signin` | `requestId` | **iOS only.** Run the native Apple `ASAuthorization` sheet; native resolves the `signInWithApple()` promise with `{ identityToken, rawNonce, authorizationCode?, email?, fullName? }` (or rejects). Avoids the browser OAuth round-trip Apple rejects under Guideline 2.1(a). |
+| `apple:signin` | `requestId` | **iOS only.** Run the native Apple `ASAuthorization` sheet; native resolves the `signInWithApple()` promise with `{ identityToken, rawNonce, authorizationCode?, email?, fullName? }` (or rejects — a user cancel rejects with `Error.code === "canceled"` so the web treats it as a no-op instead of falling back to browser OAuth). Avoids the browser OAuth round-trip Apple rejects under Guideline 2.1(a). |
 | `openAppSettings` | — | Open the iOS app settings page (denied-permission UX) |
 | `openNotificationSettings` | — | Open notification settings (falls back to app settings on iOS) |
 | `revenuecat:identify` | `userId` | Link Supabase user to RevenueCat |
@@ -144,7 +146,7 @@ notification: {
 ### Injected globals
 
 The native shell injects these before page load (`buildInjectedJS` in `bridge.ts`):
-- `window.ChravelNative` — `{ platform: "ios"|"android", isNative: true, version: "1.0.0", isTablet, openOAuthUrl(url), openAppSettings(), openNotificationSettings(), signInWithApple()? }` (`signInWithApple()` is injected **iOS only** — returns `Promise<{ identityToken, rawNonce, authorizationCode?, email?, fullName? }>`; consumed by chravel-web `attemptNativeAppleSignIn`, which falls back to web OAuth when the method is absent)
+- `window.ChravelNative` — `{ platform: "ios"|"android", isNative: true, version: "1.0.0", isTablet, openOAuthUrl(url), openAppSettings(), openNotificationSettings(), signInWithApple()? }` (`signInWithApple()` is injected **iOS only** — returns `Promise<{ identityToken, rawNonce, authorizationCode?, email?, fullName? }>`; consumed by chravel-web `attemptNativeAppleSignIn`, which falls back to web OAuth when the method is absent. A user cancel rejects with `Error.code === "canceled"` and must be treated as a no-op, not a fallback — see `coordination/chravel-web/NATIVE_APPLE_SIGNIN.md`)
 - `window.ChravelNativeAudio` — `{ isAvailable, requestPermission(), startCapture(), stopCapture(), playAudio(base64, sampleRate), flushPlayback() }`
 - `window.Capacitor` — `{ isNativePlatform(): true, Plugins: { Browser, PushNotifications } }`
 
@@ -245,13 +247,13 @@ Ship a build (manual, when you choose):
 - **No crash reporting** — no Sentry/Bugsnag/Crashlytics
 - **No staging environment** — web app changes go to production
 - **No analytics** in the native shell
-- **2-second loading timeout** — hardcoded fallback in `scheduleLoadingFallback` (`ChravelWebView.tsx`)
+- **2-second loading timeout** — hardcoded fallback in `scheduleLoadingFallback` (`ChravelWebView.tsx`); separately, a **15-second initial-load watchdog** (`src/loadWatchdog.ts`, wired in `App.tsx`) drops the splash to the retryable ErrorScreen if the first load neither ends nor errors
 
 ## Security notes
 
 - **Apple OAuth secret expires ~September 2026** (generated 2026-03-26, 6-month lifespan) — see `TODO.md`
 - **Apple token revocation on account deletion (App Store 5.1.1(v))** — Apple sign-in runs through Supabase WebView OAuth (no native ASAuthorization). The Apple refresh token is captured server-side from `session.provider_refresh_token` (`store-apple-token` edge function), stored encrypted in the `apple_auth_tokens` table (service-role-only), and revoked via `appleid.apple.com/auth/revoke` by both `process-account-deletions` and `delete-account` before `auth.users` is deleted. Backend canonical source: `coordination/chravel-web/` (sync into ChravelApp). Requires edge secrets `APPLE_P8_PRIVATE_KEY` / `APPLE_KEY_ID` / `APPLE_TEAM_ID` / `APPLE_CLIENT_ID` / `APPLE_TOKEN_ENCRYPTION_KEY` — **the .p8 must never be committed.**
-- **Demo credentials** in `REVIEW_NOTES.md` — `demo@chravel.app` for App Store review. Rotate after review.
+- **Demo credentials** in `REVIEW_NOTES.md` — `demo@chravelapp.com` for App Store review. Rotate after review.
 - **Google Maps API key exposed in old repo git history** — `TODO.md` says it needs rotation
 - **Ensure `Chravel-Inc/ChravelApp` has no secrets in git history** — flagged in `TODO.md`
 - Bridge message parsing does type assertion without shape validation (`bridge.ts` line 123) — low risk since WebView only loads `chravel.app`

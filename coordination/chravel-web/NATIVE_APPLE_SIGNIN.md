@@ -15,6 +15,7 @@ Apple sheet** (`ASAuthorization`) in the shell and authenticate the web app with
 | Forward native `authorizationCode` to `store-apple-token` | **chravel-web** | ✅ Shipped (PR #746) — `src/hooks/auth/captureAppleToken.ts` (`captureAppleAuthorizationCode`) |
 | `store-apple-token` performs the server-side `authorizationCode → refresh_token` exchange | **ChravelApp / Supabase** | ✅ Deployed — `store-apple-token` **v27** (Chravel project `jmjiyekmxwsxkfnqwyaa`) |
 | Apple `.p8` edge secrets | **ChravelApp / Supabase** | ⏳ **Must be set** (see below) — until then the exchange no-ops gracefully |
+| Treat rejection `code === 'canceled'` as a no-op (no OAuth fallback) | **chravel-web** | ⏳ **Pending** — shell now sets it (see "Bridge contract") |
 
 > **Design note:** there is **no** separate `exchange-apple-code` function. chravel-web
 > already forwards the native code to the existing `store-apple-token`, which now completes
@@ -35,10 +36,30 @@ Promise<{
 }>
 ```
 
-It rejects on cancel/unavailable/missing token; chravel-web's
-`attemptNativeAppleSignIn` already treats a throw as `{ handled:false }` and
-falls back to the existing browser OAuth flow. On Android the method is **not**
-injected, so the web keeps its OAuth path unchanged.
+It rejects on cancel/unavailable/missing token. **The rejection `Error` carries a
+machine-readable `code` property when the user dismissed the native sheet:**
+
+```ts
+try {
+  const credential = await window.ChravelNative.signInWithApple();
+} catch (err) {
+  if ((err as { code?: string }).code === "canceled") {
+    // USER CANCEL — treat as handled/no-op: stay on the sign-in screen.
+    // Do NOT fall back to browser OAuth (that fallback flow is the prior
+    // Guideline 2.1(a) rejection vector).
+  } else {
+    // Real failure (entitlement missing, no identity token, ASAuthorization
+    // error) — existing behavior: { handled:false } → browser OAuth fallback,
+    // or a retriable inline error per the APP_STORE_REMEDIATION Prompt A fix.
+  }
+}
+```
+
+Errors without `code` keep today's semantics: chravel-web's
+`attemptNativeAppleSignIn` treats the throw as `{ handled:false }` and falls
+back to the browser OAuth flow. Older shell builds never set `code`, so the
+check degrades safely. On Android the method is **not** injected, so the web
+keeps its OAuth path unchanged.
 
 The web passes `identityToken` + `rawNonce` to
 `supabase.auth.signInWithIdToken({ provider:'apple', token, nonce: rawNonce })`.

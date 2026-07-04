@@ -199,6 +199,22 @@ describe("buildAppleSignInResponse", () => {
     expect(result).toContain('"ok":false');
     expect(result).toContain('"error":"ERR_REQUEST_CANCELED"');
   });
+
+  it("carries the machine-readable cancel code when set, and omits it otherwise", () => {
+    const canceled = buildAppleSignInResponse("as_44", {
+      ok: false,
+      error: "The operation was canceled",
+      code: "canceled",
+    });
+    expect(canceled).toContain('"code":"canceled"');
+
+    const failure = buildAppleSignInResponse("as_45", {
+      ok: false,
+      error: "boom",
+      code: undefined,
+    });
+    expect(failure).not.toContain('"code"');
+  });
 });
 
 describe("buildClearPushRegistrationCache", () => {
@@ -588,6 +604,41 @@ describe("native Apple Sign In bridge (runtime behavior)", () => {
     });
 
     await expect(pending).rejects.toThrow("ERR_REQUEST_CANCELED");
+  });
+
+  it("attaches the cancel code to the rejection Error so the web can no-op instead of falling back", async () => {
+    const { win, postMessage } = installBootstrap("ios");
+    const native = win.ChravelNative as { signInWithApple: () => Promise<unknown> };
+    const pending = native.signInWithApple();
+
+    const sent = JSON.parse(postMessage.mock.calls[0][0]);
+    (win.__chravelResolveAppleSignIn as (id: string, r: unknown) => void)(sent.requestId, {
+      ok: false,
+      error: "The operation was canceled",
+      code: "canceled",
+    });
+
+    await expect(pending).rejects.toMatchObject({
+      message: "The operation was canceled",
+      code: "canceled",
+    });
+  });
+
+  it("leaves the rejection Error code-less for generic failures (fallback preserved)", async () => {
+    const { win, postMessage } = installBootstrap("ios");
+    const native = win.ChravelNative as { signInWithApple: () => Promise<unknown> };
+    const pending = native.signInWithApple();
+
+    const sent = JSON.parse(postMessage.mock.calls[0][0]);
+    (win.__chravelResolveAppleSignIn as (id: string, r: unknown) => void)(sent.requestId, {
+      ok: false,
+      error: "boom",
+    });
+
+    await expect(pending).rejects.toThrow("boom");
+    await pending.catch((err) => {
+      expect((err as Error & { code?: string }).code).toBeUndefined();
+    });
   });
 
   it("does not expose signInWithApple on Android", () => {

@@ -1,7 +1,7 @@
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as Crypto from "expo-crypto";
 
-import { runNativeAppleSignIn } from "../appleAuth";
+import { runNativeAppleSignIn, getAppleSignInFailureCode } from "../appleAuth";
 
 jest.mock("expo-apple-authentication", () => ({
   isAvailableAsync: jest.fn(),
@@ -104,5 +104,36 @@ describe("runNativeAppleSignIn", () => {
     );
 
     await expect(runNativeAppleSignIn()).rejects.toThrow("The operation was canceled");
+  });
+});
+
+describe("getAppleSignInFailureCode", () => {
+  it("maps the expo-apple-authentication cancel codes to 'canceled'", () => {
+    expect(
+      getAppleSignInFailureCode(
+        Object.assign(new Error("canceled"), { code: "ERR_REQUEST_CANCELED" }),
+      ),
+    ).toBe("canceled");
+    expect(
+      getAppleSignInFailureCode(
+        Object.assign(new Error("canceled"), { code: "ERR_CANCELED" }),
+      ),
+    ).toBe("canceled");
+  });
+
+  it("returns undefined for real failures so the web OAuth fallback still runs", () => {
+    expect(getAppleSignInFailureCode(new Error("no identity token"))).toBeUndefined();
+    expect(
+      getAppleSignInFailureCode(
+        Object.assign(new Error("boom"), { code: "ERR_INVALID_RESPONSE" }),
+      ),
+    ).toBeUndefined();
+  });
+
+  it("tolerates non-Error and malformed inputs", () => {
+    expect(getAppleSignInFailureCode(null)).toBeUndefined();
+    expect(getAppleSignInFailureCode(undefined)).toBeUndefined();
+    expect(getAppleSignInFailureCode("ERR_REQUEST_CANCELED")).toBeUndefined();
+    expect(getAppleSignInFailureCode({ code: 42 })).toBeUndefined();
   });
 });
