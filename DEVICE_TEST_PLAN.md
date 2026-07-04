@@ -67,7 +67,7 @@ first) and again as an **update** over the prior version.
 ## 10. Metadata / review parity (Guideline 2.3)
 - [ ] Home-screen app name reads **"ChravelApp"** (matches the App Store listing title).
 - [ ] `store.config.json` review contact `phone` is a **real, reachable** number (NOT the
-      `+1-555-000-0000` placeholder) and the demo account `demo@chravel.app` signs in cleanly.
+      `+1-555-000-0000` placeholder) and the demo account `demo@chravelapp.com` signs in cleanly.
 
 ---
 

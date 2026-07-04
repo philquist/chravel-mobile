@@ -31,7 +31,7 @@
       "lastName": "Support",
       "email": "ops@chravelapp.com",
       "phone": "+14244241464",
-      "demoUsername": "demo@chravel.app",
+      "demoUsername": "demo@chravelapp.com",
       "demoPassword": "DemoTrip2025!",
       "notes": "See REVIEW_NOTES.md in the source repo for a full feature walkthrough. Demo account has pre-populated trips, chat, calendar events, and expense splits. Voice concierge: tap the AI tab, then the microphone icon. Native integrations (push, haptics, share sheet, deep links, RevenueCat subscriptions) require a native build — WebView-only features will not demonstrate these."
     }

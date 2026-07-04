@@ -1,8 +1,10 @@
 # Apple Sign-in token revocation on account deletion — chravel-web coordination package
 
 > **See also `NATIVE_APPLE_SIGNIN.md`** in this folder — the native Sign in with Apple
-> (Guideline 2.1(a)) bridge added in chravel-mobile, and the `exchange-apple-code` function
-> that keeps the revocation flow below working for native sign-ins.
+> (Guideline 2.1(a)) bridge added in chravel-mobile. There is no separate
+> `exchange-apple-code` function: for native sign-ins, `store-apple-token` (v27) exchanges
+> the native `authorizationCode` for the refresh token inline, which keeps the revocation
+> flow below working.
 
 
 App Store Guideline **5.1.1(v)**: an app offering Sign in with Apple must revoke the Apple
@@ -16,12 +18,19 @@ token when the user deletes their account. This package adds that to the shared 
 
 ## Architecture note (important)
 
-Apple Sign-in runs through **Supabase GoTrue OAuth in a WebView/ASWebAuthenticationSession** for
-**both** web and native. There is **no** native ASAuthorization flow (`chravel-mobile` only
-intercepts the OAuth URL and relays the `chravel://auth-callback` deep link). Supabase performs the
-Apple authorization-code exchange and exposes the Apple refresh token as
-`session.provider_refresh_token`. We therefore capture it **server-side from the Supabase session**,
-which covers web + native with zero native code changes.
+Apple sign-in is **dual-path** (see `NATIVE_APPLE_SIGNIN.md` for the full contract):
+
+- **iOS native:** the shell runs the native **ASAuthorization sheet** (`src/appleAuth.ts`) and
+  the web app calls `supabase.auth.signInWithIdToken`. That flow yields no
+  `provider_refresh_token`, so chravel-web forwards the native `authorizationCode` to
+  `store-apple-token`, which exchanges it server-side for the Apple refresh token (v27).
+- **Web + Android:** Supabase GoTrue OAuth in a browser/ASWebAuthenticationSession
+  (`chravel-mobile` intercepts the OAuth URL and relays the `chravel://auth-callback` deep
+  link). Supabase performs the code exchange and exposes the refresh token as
+  `session.provider_refresh_token`, captured server-side from the session.
+
+Both paths land the encrypted refresh token in `apple_auth_tokens`, so the revocation flow
+below covers every sign-in variant.
 
 ## What's in this package
 

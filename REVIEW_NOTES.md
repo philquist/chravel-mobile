@@ -3,7 +3,7 @@
 ## Demo Account
 
 ```
-Email: demo@chravel.app
+Email: demo@chravelapp.com
 Password: DemoTrip2025!
 ```
 
