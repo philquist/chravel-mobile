@@ -113,6 +113,21 @@ export function buildAppleSignInResponse(
 }
 
 /**
+ * Deliver a deep link to the web SPA through the Capacitor App shim's
+ * `appUrlOpen` event (window.__chravelDeliverAppUrlOpen). If the web app has
+ * not attached an appUrlOpen listener (old bundle, or the link raced page
+ * bootstrap), fall back to a full navigation so the link is never dropped.
+ */
+export function buildAppUrlOpenDispatch(
+  url: string,
+  fallbackUrl: string,
+): string {
+  return `if (!(window.__chravelDeliverAppUrlOpen && window.__chravelDeliverAppUrlOpen(${JSON.stringify(
+    url,
+  )}))) { window.location.href = ${JSON.stringify(fallbackUrl)}; } true;`;
+}
+
+/**
  * Clear cached Capacitor push registration replay state in the injected shim.
  * Must run on push:unregister so a subsequent addListener() cannot replay a
  * prior user's device token after account switch within the same WebView session.
@@ -276,6 +291,57 @@ export function buildNativeBootstrapJS(
         removeAllListeners: function() {
           __chravelPush.listeners = {};
           return Promise.resolve();
+        }
+      };
+
+      // ── Capacitor App shim (appUrlOpen) ─────────────────────────
+      // chravel-web listens via Capacitor.Plugins.App.addListener('appUrlOpen')
+      // and routes event.url (/j/:code, /join/:code invite links) through its
+      // SPA router without a full page reload. Native delivers deep links by
+      // injecting __chravelDeliverAppUrlOpen (buildAppUrlOpenDispatch); when no
+      // listener is attached the native side falls back to window.location.
+      var __chravelAppShim = window.__chravelAppShim || { listeners: {}, lastUrl: null };
+      window.__chravelAppShim = __chravelAppShim;
+
+      // Called from native (injected JS). Returns true only when at least one
+      // appUrlOpen listener consumed the URL, so native knows whether to fall
+      // back to a full navigation.
+      window.__chravelDeliverAppUrlOpen = function(url) {
+        var value = String(url);
+        __chravelAppShim.lastUrl = value;
+        var arr = __chravelAppShim.listeners['appUrlOpen'];
+        if (!arr || arr.length === 0) return false;
+        arr.slice().forEach(function(cb) {
+          try { cb({ url: value }); } catch (e) {}
+        });
+        return true;
+      };
+
+      window.Capacitor.Plugins.App = {
+        addListener: function(eventName, listener) {
+          if (!__chravelAppShim.listeners[eventName]) {
+            __chravelAppShim.listeners[eventName] = [];
+          }
+          __chravelAppShim.listeners[eventName].push(listener);
+          return Promise.resolve({
+            remove: function() {
+              var arr = __chravelAppShim.listeners[eventName];
+              if (arr) {
+                var i = arr.indexOf(listener);
+                if (i !== -1) arr.splice(i, 1);
+              }
+              return Promise.resolve();
+            }
+          });
+        },
+        removeAllListeners: function() {
+          __chravelAppShim.listeners = {};
+          return Promise.resolve();
+        },
+        getLaunchUrl: function() {
+          return Promise.resolve(
+            __chravelAppShim.lastUrl ? { url: __chravelAppShim.lastUrl } : undefined
+          );
         }
       };
 

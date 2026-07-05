@@ -76,6 +76,44 @@ describe("app.config.js location consistency", () => {
   });
 });
 
+describe("app.config.js deep-link / app-link domains", () => {
+  // These must stay in lockstep with the AASA / assetlinks.json files served
+  // at https://chravel.app/.well-known/ (owned by Chravel-Inc/ChravelApp):
+  //   AASA appID:            <TEAM_ID>.com.chravel.app
+  //   assetlinks package:    com.chravel.app
+  // and the AASA paths / intent-filter pathPrefixes must both cover the
+  // invite routes /j/* and /join/*.
+  const associatedDomains = config.ios.associatedDomains as string[];
+  const intentFilters = config.android.intentFilters as Array<{
+    autoVerify?: boolean;
+    data: Array<{ scheme: string; host?: string; pathPrefix?: string }>;
+  }>;
+
+  it("keeps iOS universal-link domains for chravel.app and www", () => {
+    expect(associatedDomains).toContain("applinks:chravel.app");
+    expect(associatedDomains).toContain("applinks:www.chravel.app");
+  });
+
+  it("keeps auto-verified Android App Links covering /j and /join on both hosts", () => {
+    const verified = intentFilters.filter((f) => f.autoVerify === true);
+    expect(verified.length).toBeGreaterThan(0);
+    const httpsData = verified.flatMap((f) =>
+      f.data.filter((d) => d.scheme === "https"),
+    );
+    for (const host of ["chravel.app", "www.chravel.app"]) {
+      for (const prefix of ["/j", "/join"]) {
+        expect(
+          httpsData.some((d) => d.host === host && d.pathPrefix === prefix),
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("keeps the Android package aligned with assetlinks.json", () => {
+    expect(config.android.package).toBe("com.chravel.app");
+  });
+});
+
 describe("app.config.js review-critical identity", () => {
   it("keeps bundle ID, Apple Sign In, and display-name parity intact", () => {
     expect(config.ios.bundleIdentifier).toBe("com.chravel.app");

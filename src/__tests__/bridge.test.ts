@@ -3,6 +3,7 @@ import {
   buildWebEvent,
   buildPushPermissionResponse,
   buildAppleSignInResponse,
+  buildAppUrlOpenDispatch,
   buildClearPushRegistrationCache,
   buildInjectedJS,
   buildNativeBootstrapJS,
@@ -531,6 +532,148 @@ describe("Capacitor PushNotifications shim (runtime behavior)", () => {
     await plugin.removeAllListeners();
     fireToken({ token: "should-not-deliver" });
     expect(received).toEqual([]);
+  });
+});
+
+describe("Capacitor App shim (appUrlOpen runtime behavior)", () => {
+  class FakeEvent {
+    type: string;
+    constructor(type: string) {
+      this.type = type;
+    }
+  }
+  class FakeCustomEvent {
+    type: string;
+    detail: unknown;
+    constructor(type: string, init?: { detail?: unknown }) {
+      this.type = type;
+      this.detail = init ? init.detail : undefined;
+    }
+  }
+
+  function installShim() {
+    const win: Record<string, unknown> = {
+      ReactNativeWebView: { postMessage: jest.fn() },
+      addEventListener: jest.fn(),
+      dispatchEvent: () => true,
+      location: { href: "https://chravel.app/auth?app_context=native" },
+    };
+    const js = buildNativeBootstrapJS("ios");
+    // eslint-disable-next-line no-new-func
+    new Function("window", "Event", "CustomEvent", js)(win, FakeEvent, FakeCustomEvent);
+    const plugin = (win.Capacitor as { Plugins: { App: any } }).Plugins.App;
+    const deliver = win.__chravelDeliverAppUrlOpen as (url: string) => boolean;
+    return { win, plugin, deliver };
+  }
+
+  it("exposes addListener, removeAllListeners and getLaunchUrl", () => {
+    const { plugin } = installShim();
+    expect(typeof plugin.addListener).toBe("function");
+    expect(typeof plugin.removeAllListeners).toBe("function");
+    expect(typeof plugin.getLaunchUrl).toBe("function");
+  });
+
+  it("delivers appUrlOpen to an attached listener and reports consumption", async () => {
+    const { plugin, deliver } = installShim();
+    const received: Array<{ url: string }> = [];
+    await plugin.addListener("appUrlOpen", (e: { url: string }) => received.push(e));
+
+    expect(deliver("https://chravel.app/join/invite123?app_context=native")).toBe(true);
+    expect(received).toEqual([
+      { url: "https://chravel.app/join/invite123?app_context=native" },
+    ]);
+  });
+
+  it("reports no consumption when no listener is attached (native falls back)", () => {
+    const { deliver } = installShim();
+    expect(deliver("https://chravel.app/j/abc")).toBe(false);
+  });
+
+  it("stops delivering after the listener handle is removed", async () => {
+    const { plugin, deliver } = installShim();
+    const received: unknown[] = [];
+    const handle = await plugin.addListener("appUrlOpen", (e: unknown) => received.push(e));
+    await handle.remove();
+    expect(deliver("https://chravel.app/j/abc")).toBe(false);
+    expect(received).toEqual([]);
+  });
+
+  it("removeAllListeners clears appUrlOpen listeners", async () => {
+    const { plugin, deliver } = installShim();
+    const received: unknown[] = [];
+    await plugin.addListener("appUrlOpen", (e: unknown) => received.push(e));
+    await plugin.removeAllListeners();
+    expect(deliver("https://chravel.app/j/abc")).toBe(false);
+    expect(received).toEqual([]);
+  });
+
+  it("getLaunchUrl resolves the last delivered URL (undefined before any delivery)", async () => {
+    const { plugin, deliver } = installShim();
+    await expect(plugin.getLaunchUrl()).resolves.toBeUndefined();
+    deliver("https://chravel.app/j/abc");
+    await expect(plugin.getLaunchUrl()).resolves.toEqual({
+      url: "https://chravel.app/j/abc",
+    });
+  });
+});
+
+describe("buildAppUrlOpenDispatch", () => {
+  function runDispatch(js: string, win: Record<string, unknown>) {
+    // eslint-disable-next-line no-new-func
+    new Function("window", js)(win);
+  }
+
+  it("does not navigate when the shim consumes the URL", () => {
+    const win: Record<string, unknown> = {
+      __chravelDeliverAppUrlOpen: jest.fn(() => true),
+      location: { href: "https://chravel.app/home?app_context=native" },
+    };
+    runDispatch(
+      buildAppUrlOpenDispatch(
+        "https://chravel.app/j/abc?app_context=native",
+        "https://chravel.app/j/abc?app_context=native",
+      ),
+      win,
+    );
+    expect(win.__chravelDeliverAppUrlOpen).toHaveBeenCalledWith(
+      "https://chravel.app/j/abc?app_context=native",
+    );
+    expect((win.location as { href: string }).href).toBe(
+      "https://chravel.app/home?app_context=native",
+    );
+  });
+
+  it("falls back to a full navigation when no listener consumed the URL", () => {
+    const win: Record<string, unknown> = {
+      __chravelDeliverAppUrlOpen: jest.fn(() => false),
+      location: { href: "https://chravel.app/home?app_context=native" },
+    };
+    runDispatch(
+      buildAppUrlOpenDispatch(
+        "https://chravel.app/join/abc?app_context=native",
+        "https://chravel.app/join/abc?app_context=native",
+      ),
+      win,
+    );
+    expect((win.location as { href: string }).href).toBe(
+      "https://chravel.app/join/abc?app_context=native",
+    );
+  });
+
+  it("falls back when the shim is entirely absent (very old page state)", () => {
+    const win: Record<string, unknown> = {
+      location: { href: "https://chravel.app/home" },
+    };
+    runDispatch(
+      buildAppUrlOpenDispatch(
+        "https://chravel.app/j/abc",
+        "https://chravel.app/j/abc?app_context=native",
+      ),
+      win,
+    );
+    expect((win.location as { href: string }).href).toBe(
+      "https://chravel.app/j/abc?app_context=native",
+    );
   });
 });
 
