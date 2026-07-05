@@ -14,8 +14,8 @@ the standard Capacitor API.
 | `window.Capacitor.Plugins.App` shim (`appUrlOpen`, `getLaunchUrl`) | **chravel-mobile** | ✅ Added — `src/bridge.ts` (`buildNativeBootstrapJS`, `buildAppUrlOpenDispatch`) |
 | Route `/j/:code` + `/join/:code` deep links through the shim | **chravel-mobile** | ✅ Added — `handleIncomingPath` in `src/ChravelWebView.tsx`, `isJoinPath` in `src/deepLinking.ts` |
 | `App.addListener('appUrlOpen', …)` → SPA router `navigate()` | **chravel-web** | ⏳ **Pending** — until it ships, the shell's fallback does a full `window.location.href` navigation (links still work) |
-| Serve `/.well-known/apple-app-site-association` covering `/j/*` + `/join/*` | **ChravelApp (web hosting)** | ⏳ **Verify** — could not be checked from the mobile-repo sandbox (network policy blocks chravel.app); see checklist below |
-| Serve `/.well-known/assetlinks.json` for `com.chravel.app` | **ChravelApp (web hosting)** | ⏳ **Verify** — same |
+| Serve `/.well-known/apple-app-site-association` covering `/j/*` + `/join/*` | **chravel-web** | ✅ **Verified** — appID `2T6WY43H3X.com.chravel.app` with `/j/*` and `/join/*` in components |
+| Serve `/.well-known/assetlinks.json` for `com.chravel.app` | **chravel-web** | ✅ **Verified** — package `com.chravel.app` with SHA-256 fingerprint configured |
 
 ## Shim contract (implemented in chravel-mobile)
 
@@ -49,7 +49,46 @@ Notes for the web implementation:
   web app posts `ready`. `getLaunchUrl()` therefore only returns a value once
   that delivery has happened.
 
-## Domain-association verification checklist (run from a network with access to chravel.app)
+## Domain-association verification (✅ complete)
+
+The domain-association files have been verified against chravel-web's hosted files:
+
+**AASA** (`public/.well-known/apple-app-site-association`):
+```json
+{
+  "applinks": {
+    "details": [{
+      "appIDs": ["2T6WY43H3X.com.chravel.app"],
+      "components": [
+        { "/": "/j/*" },
+        { "/": "/join/*" },
+        … (other paths)
+      ]
+    }]
+  }
+}
+```
+
+**assetlinks.json** (`public/.well-known/assetlinks.json`):
+```json
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.chravel.app",
+    "sha256_cert_fingerprints": ["2E:31:49:50:..."]
+  }
+}]
+```
+
+Mobile app invariants (locked in tests):
+- iOS: `associatedDomains = ["applinks:chravel.app", "applinks:www.chravel.app"]`
+- Android: auto-verified intent filters covering `/j/*` and `/join/*` on both hosts
+- Bundle/package: `com.chravel.app`
+
+All align correctly. ✅
+
+## Domain-association verification checklist (reference, for future updates)
 
 The app-side halves are locked by tests (`src/__tests__/appConfig.test.ts`):
 iOS `associatedDomains` = `applinks:chravel.app` + `applinks:www.chravel.app`,
