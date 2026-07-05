@@ -27,9 +27,43 @@ import {
   buildCacheBustParam,
   NATIVE_OAUTH_CALLBACK_URL,
   rewriteOAuthUrlForNativeCallback,
+  isJoinPath,
   isNativeAuthReturnPath,
   preferExistingDeferredPath,
 } from "../deepLinking";
+
+describe("isJoinPath", () => {
+  it("matches short invite links (/j/:code)", () => {
+    expect(isJoinPath("/j/chravelhmbehnbu")).toBe(true);
+  });
+
+  it("matches full invite links (/join/:code)", () => {
+    expect(isJoinPath("/join/invite123")).toBe(true);
+  });
+
+  it("matches invite links with query strings and hashes", () => {
+    expect(isJoinPath("/j/abc?utm_source=sms")).toBe(true);
+    expect(isJoinPath("/join/abc#section")).toBe(true);
+  });
+
+  it("rejects bare /j and /join with no code", () => {
+    expect(isJoinPath("/j")).toBe(false);
+    expect(isJoinPath("/j/")).toBe(false);
+    expect(isJoinPath("/join")).toBe(false);
+    expect(isJoinPath("/join/")).toBe(false);
+    expect(isJoinPath("/join/?x=1")).toBe(false);
+  });
+
+  it("rejects substring look-alikes", () => {
+    expect(isJoinPath("/joined/x")).toBe(false);
+    expect(isJoinPath("/jump/x")).toBe(false);
+  });
+
+  it("rejects non-join routes", () => {
+    expect(isJoinPath("/trip/abc")).toBe(false);
+    expect(isJoinPath("/auth")).toBe(false);
+  });
+});
 
 describe("isAuthScreenUrl", () => {
   it("is true for /auth on chravel.app", () => {

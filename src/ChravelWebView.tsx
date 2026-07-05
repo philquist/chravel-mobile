@@ -27,6 +27,7 @@ import {
   buildWebEvent,
   buildPushPermissionResponse,
   buildAppleSignInResponse,
+  buildAppUrlOpenDispatch,
   buildClearPushRegistrationCache,
   parseBridgeMessage,
 } from "./bridge";
@@ -48,6 +49,7 @@ import {
   onDeepLink,
   parseDeepLinkUrl,
   isAuthScreenUrl,
+  isJoinPath,
   isNativeAuthReturnPath,
   preferExistingDeferredPath,
   NATIVE_OAUTH_CALLBACK_URL,
@@ -156,6 +158,16 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
       // Any non-callback route means OAuth redirect handling is complete (or not in play).
       // Reset the flag so a stale auth-redirect state cannot keep the loading overlay pinned.
       isAuthRedirectRef.current = false;
+      if (isJoinPath(path)) {
+        // Invite links (/j/:code, /join/:code) go through the Capacitor App
+        // shim's appUrlOpen event so the web SPA router navigates in place.
+        // Falls back to a full navigation if no listener is attached.
+        const fullUrl = buildWebViewLaunchUrl(path);
+        webViewRef.current?.injectJavaScript(
+          buildAppUrlOpenDispatch(fullUrl, fullUrl),
+        );
+        return;
+      }
       navigateWebView(path);
     },
     [navigateWebView, clearLoadingFallbackTimer],

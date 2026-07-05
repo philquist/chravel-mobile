@@ -57,6 +57,18 @@ export function parseDeepLinkUrl(url: string): string | null {
   }
 }
 
+/**
+ * Invite-join routes the web SPA router handles client-side: short links
+ * (/j/:code) and full links (/join/:code), with optional query/hash. These are
+ * delivered via the Capacitor App shim's `appUrlOpen` event so React Router
+ * navigates in place instead of a full document reload — a reload would drop
+ * the SPA's in-memory join context. Requires a non-empty code segment so bare
+ * /j or /join (and look-alikes like /joined/x) still use normal navigation.
+ */
+export function isJoinPath(path: string): boolean {
+  return /^\/(j|join)\/[^/?#]+/.test(path);
+}
+
 /** Single source of truth for native shell auth bootstrap route. */
 export const AUTH_LAUNCH_PATH = "/auth";
 

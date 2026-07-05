@@ -148,7 +148,7 @@ notification: {
 The native shell injects these before page load (`buildInjectedJS` in `bridge.ts`):
 - `window.ChravelNative` — `{ platform: "ios"|"android", isNative: true, version: "1.0.0", isTablet, openOAuthUrl(url), openAppSettings(), openNotificationSettings(), signInWithApple()? }` (`signInWithApple()` is injected **iOS only** — returns `Promise<{ identityToken, rawNonce, authorizationCode?, email?, fullName? }>`; consumed by chravel-web `attemptNativeAppleSignIn`, which falls back to web OAuth when the method is absent. A user cancel rejects with `Error.code === "canceled"` and must be treated as a no-op, not a fallback — see `coordination/chravel-web/NATIVE_APPLE_SIGNIN.md`)
 - `window.ChravelNativeAudio` — `{ isAvailable, requestPermission(), startCapture(), stopCapture(), playAudio(base64, sampleRate), flushPlayback() }`
-- `window.Capacitor` — `{ isNativePlatform(): true, Plugins: { Browser, PushNotifications } }`
+- `window.Capacitor` — `{ isNativePlatform(): true, Plugins: { Browser, PushNotifications, App } }`
 
 #### `window.Capacitor.Plugins.PushNotifications`
 
@@ -174,6 +174,26 @@ The shim is a thin translator: the native side keeps emitting the existing
 injected shim re-dispatches it as `registration` / `registrationError`. No
 Capacitor or Firebase SDK is bundled in this repo. The web app owns the
 `push_device_tokens` upsert once it receives the token.
+
+#### `window.Capacitor.Plugins.App`
+
+Capacitor-compatible App shim for deep-link delivery. chravel-web attaches
+`App.addListener('appUrlOpen', ({ url }) => …)` and routes the URL through its
+SPA router (React Router `navigate`) — no full document reload.
+
+| Method | Returns | Notes |
+|---|---|---|
+| `addListener('appUrlOpen', cb)` | `Promise<{ remove() }>` | `cb` receives `{ url }` — a full `https://chravel.app/...` URL. |
+| `removeAllListeners()` | `Promise<void>` | Clears all listeners. |
+| `getLaunchUrl()` | `Promise<{ url } \| undefined>` | Last URL delivered through the shim (undefined before any delivery). |
+
+Native side: `handleIncomingPath` (`ChravelWebView.tsx`) routes **invite-join
+links only** (`/j/:code`, `/join/:code` — `isJoinPath` in `deepLinking.ts`)
+through the shim via `buildAppUrlOpenDispatch` (`bridge.ts`). If no `appUrlOpen`
+listener is attached (older web bundle, or the link raced page bootstrap), the
+injected JS falls back to a full `window.location.href` navigation so the link
+is never dropped. All other deep links (trips, notification taps, OAuth
+callbacks) keep the full-navigation path via `navigateWebView`.
 
 ## Commands
 
