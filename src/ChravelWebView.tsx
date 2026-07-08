@@ -74,9 +74,20 @@ import { isFatalHttpError } from "./httpError";
 interface ChravelWebViewProps {
   onError: () => void;
   onInitialLoadEnd?: () => void;
+  /**
+   * Incremented after the native pre-prompt completes. The WebView may have
+   * already tried its one-shot proactive registration before the user granted
+   * iOS/Android notification permission, so this gives the native shell one
+   * non-prompting retry to forward the newly available APNs/FCM token.
+   */
+  pushPermissionRefreshKey?: number;
 }
 
-export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProps) {
+export function ChravelWebView({
+  onError,
+  onInitialLoadEnd,
+  pushPermissionRefreshKey = 0,
+}: ChravelWebViewProps) {
   const webViewRef = useRef<WebView>(null);
   const [isLoading, setIsLoading] = useState(true);
   const insets = useSafeAreaInsets();
@@ -317,6 +328,17 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
     [],
   );
 
+  const forwardGrantedPushToken = useCallback(() => {
+    void registerForPushNotifications({ promptIfNeeded: false }).then((result) => {
+      if (result.token) emitPushToken(result);
+    });
+  }, [emitPushToken]);
+
+  useEffect(() => {
+    if (pushPermissionRefreshKey <= 0 || !isReadyRef.current) return;
+    forwardGrantedPushToken();
+  }, [forwardGrantedPushToken, pushPermissionRefreshKey]);
+
   // ── Bridge message handler ──────────────────────────────────
 
   const handleMessage = useCallback(async (event: WebViewMessageEvent) => {
@@ -351,11 +373,7 @@ export function ChravelWebView({ onError, onInitialLoadEnd }: ChravelWebViewProp
         // The web app upserts push_device_tokens once it receives the token.
         if (!didProactiveRegisterRef.current) {
           didProactiveRegisterRef.current = true;
-          void registerForPushNotifications({ promptIfNeeded: false }).then(
-            (result) => {
-              if (result.token) emitPushToken(result);
-            },
-          );
+          forwardGrantedPushToken();
         }
         break;
       }
@@ -530,7 +548,14 @@ ${buildWebEvent("chravel:push-unregistered", { success: true })}`,
         break;
       }
     }
-  }, [handleIncomingPath, clearLoadingFallbackTimer, scheduleLoadingFallback, openOAuthAuthSession, emitPushToken]);
+  }, [
+    handleIncomingPath,
+    clearLoadingFallbackTimer,
+    scheduleLoadingFallback,
+    openOAuthAuthSession,
+    emitPushToken,
+    forwardGrantedPushToken,
+  ]);
 
   // ── URL filter ──────────────────────────────────────────────
 

@@ -17,6 +17,7 @@ SplashScreen.preventAutoHideAsync();
 export default function App() {
   const [showTerms, setShowTerms] = useState(true);
   const [showPushPrompt, setShowPushPrompt] = useState(true);
+  const [pushPermissionRefreshKey, setPushPermissionRefreshKey] = useState(0);
   const [hasError, setHasError] = useState(false);
 
   // Ref (not state): splash hiding never drives rendering, and both the
@@ -78,6 +79,7 @@ export default function App() {
           <ChravelWebView
             onError={handleWebViewError}
             onInitialLoadEnd={handleInitialWebLoadEnd}
+            pushPermissionRefreshKey={pushPermissionRefreshKey}
           />
         )}
         {!hasError && showTerms && (
@@ -87,7 +89,12 @@ export default function App() {
         )}
         {!hasError && !showTerms && showPushPrompt && (
           <View style={styles.overlay}>
-            <PushPrePrompt onComplete={() => setShowPushPrompt(false)} />
+            <PushPrePrompt
+              onComplete={() => {
+                setShowPushPrompt(false);
+                setPushPermissionRefreshKey((key) => key + 1);
+              }}
+            />
           </View>
         )}
       </View>
